@@ -43,3 +43,12 @@ or a server-only environment file outside the repository.
 
 Do not replace unrelated applications or deploy local uncommitted archives as
 the primary release workflow.
+
+## Private-repository bootstrap
+
+If the VPS does not yet have a read-only GitHub deploy key, a first release may
+be transferred as a `git archive` created from an already-pushed `origin/main`
+commit. Record both the commit SHA and archive checksum, verify the checksum on
+the VPS, and extract only into the verified application directory. Never package
+an uncommitted working tree. Add a read-only deploy key before relying on
+`deploy/deploy_from_git.sh` for subsequent releases.

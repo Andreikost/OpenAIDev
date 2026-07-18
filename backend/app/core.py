@@ -63,7 +63,7 @@ class ColonyMindEngine:
     and never accesses labels. A separate evaluator owns the shape-name mapping.
     """
 
-    retina_side = 16
+    retina_side = 32
     vector_size = retina_side * retina_side
 
     def __init__(self, seed: int = 20260718) -> None:
@@ -125,14 +125,20 @@ class ColonyMindEngine:
         cosine = math.cos(rotation)
         sine = math.sin(rotation)
         pixels = np.zeros((self.retina_side, self.retina_side), dtype=np.float64)
+        subpixel_offsets = (-0.25, 0.25)
 
         for row in range(self.retina_side):
             for column in range(self.retina_side):
-                retinal_x = ((column + 0.5) / self.retina_side) * 2.0 - 1.0 - offset_x
-                retinal_y = ((row + 0.5) / self.retina_side) * 2.0 - 1.0 - offset_y
-                local_x = (cosine * retinal_x + sine * retinal_y) / scale
-                local_y = (-sine * retinal_x + cosine * retinal_y) / scale
-                signal = 0.94 if self._inside_shape(shape, local_x, local_y) else 0.025
+                covered = 0
+                for subpixel_y in subpixel_offsets:
+                    for subpixel_x in subpixel_offsets:
+                        retinal_x = ((column + 0.5 + subpixel_x) / self.retina_side) * 2.0 - 1.0 - offset_x
+                        retinal_y = ((row + 0.5 + subpixel_y) / self.retina_side) * 2.0 - 1.0 - offset_y
+                        local_x = (cosine * retinal_x + sine * retinal_y) / scale
+                        local_y = (-sine * retinal_x + cosine * retinal_y) / scale
+                        covered += int(self._inside_shape(shape, local_x, local_y))
+                coverage = covered / 4.0
+                signal = 0.025 + coverage * 0.915
                 pixels[row, column] = signal + source_rng.uniform(-noise, noise)
 
         if occlusion > 0:
@@ -421,7 +427,18 @@ class ColonyMindEngine:
                 "resourceScore": round(sum(org.utility for org in self.organisms.values()), 4),
                 "events": len(self.events),
             },
-            "cells": [asdict(cell) for cell in self.cells.values()],
+            "cells": [
+                {
+                    "id": cell.id,
+                    "organism_id": cell.organism_id,
+                    "energy": round(cell.energy, 4),
+                    "utility": round(cell.utility, 5),
+                    "activation": round(cell.activation, 5),
+                    "age_steps": cell.age_steps,
+                    "redundancy": round(cell.redundancy, 5),
+                }
+                for cell in self.cells.values()
+            ],
             "organisms": organisms,
             "colonies": [asdict(colony) for colony in self.colonies.values()],
             "informationPatches": self.information_patches,

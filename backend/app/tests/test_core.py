@@ -67,9 +67,9 @@ def test_public_stimulus_is_a_label_free_retina() -> None:
 
     assert private_label in ("circle", "triangle", "square")
     assert "visualShape" not in public
-    assert public["retinaSide"] == 16
-    assert len(public["retinaPixels"]) == 16 * 16
-    assert vector.shape == (16 * 16,)
+    assert public["retinaSide"] == 32
+    assert len(public["retinaPixels"]) == 32 * 32
+    assert vector.shape == (32 * 32,)
     assert 0.38 <= public["scale"] <= 0.82
 
 

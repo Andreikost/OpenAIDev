@@ -38,3 +38,10 @@ changed the model.
 - The evaluator currently reports purity. Standard NMI and ARI belong to P1.
 - GPT-5.6 curriculum and explanation calls, camera input, and physical energy
   measurements are P1+ work and are absent from this release.
+
+## Public-session boundary
+
+Each browser receives a persistent opaque session identifier and its own engine
+instance. API learning operations require that identifier; an older client or a
+different visitor cannot advance, reset, evaluate, or ablate another visitor's
+ecosystem. The in-memory registry retains at most 64 recent sessions.

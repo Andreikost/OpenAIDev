@@ -1,7 +1,15 @@
 import type { Ablation, Evaluation, State } from './types';
 
+const SESSION_STORAGE_KEY = 'colonymind-session-v1';
+const existingSession = window.localStorage.getItem(SESSION_STORAGE_KEY);
+const sessionId = existingSession ?? `cm_${crypto.randomUUID().replaceAll('-', '')}`;
+if (!existingSession) window.localStorage.setItem(SESSION_STORAGE_KEY, sessionId);
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...init });
+  const headers = new Headers(init?.headers);
+  headers.set('Content-Type', 'application/json');
+  headers.set('X-ColonyMind-Session', sessionId);
+  const response = await fetch(path, { ...init, headers });
   if (!response.ok) throw new Error(await response.text() || `Request failed: ${response.status}`);
   return response.json() as Promise<T>;
 }

@@ -1,0 +1,40 @@
+# Dependencies and builds
+node_modules/
+dist/
+build/
+.vite/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+secrets/
+credentials/
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Runtime data
+checkpoints/
+logs/
+reports/private/
+*.sqlite3
+*.db
+
+# Test and editor output
+test-results/
+playwright-report/
+coverage/
+.idea/
+.vscode/
+*.swp
+Thumbs.db
+.DS_Store

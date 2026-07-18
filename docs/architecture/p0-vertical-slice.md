@@ -5,10 +5,13 @@ of camera intelligence or physical-energy measurement.
 
 ## Learning boundary
 
-The shape generator uses a private semantic name only to create synthetic
-features. The learning engine receives feature vectors and cannot access labels.
-The evaluator independently maps held-out vectors to private labels, hashes the
-model before and after evaluation, and reports whether it changed the model.
+The shape generator uses a private semantic name only to rasterize an image on a
+16 × 16 intensity retina. Each presentation independently varies scale,
+rotation, position, sensor noise, and occlusion. The learning engine receives
+only the 256 retinal intensities and cannot access labels or symbolic shape
+identifiers. The evaluator independently maps held-out retinal images to private
+labels, hashes the model before and after evaluation, and reports whether it
+changed the model.
 
 ## Structure
 
@@ -17,6 +20,11 @@ model before and after evaluation, and reports whether it changed the model.
 - Colonies are persistent pairs of complementary mature organisms.
 - The resource score is marginal unsupervised benefit minus active-structure
   proxy cost.
+- Retinal observations become temporary food patches in a deterministic 2-D
+  information habitat. Organism activation steers movement toward a patch;
+  low-activation organisms explore, and colony members balance foraging with
+  cohesion. Therefore the canvas visualizes motor state produced by the learning
+  engine rather than assigning fixed decorative positions.
 - A structural review runs every twelve learning steps. It may add capacity for
   a persistent residual or an input vector sufficiently novel relative to the
   existing specializations. The decision uses only feature-vector distance;

@@ -39,6 +39,10 @@ class Organism:
     colony_id: str | None = None
     age_steps: int = 0
     contribution: float = 0.0
+    x: float = 50.0
+    y: float = 50.0
+    heading: float = 0.0
+    distance_travelled: float = 0.0
 
 
 @dataclass
@@ -59,7 +63,8 @@ class ColonyMindEngine:
     and never accesses labels. A separate evaluator owns the shape-name mapping.
     """
 
-    vector_size = 16
+    retina_side = 16
+    vector_size = retina_side * retina_side
 
     def __init__(self, seed: int = 20260718) -> None:
         self.reset(seed)
@@ -74,6 +79,7 @@ class ColonyMindEngine:
         self.events: list[dict[str, Any]] = []
         self.loss_history: list[float] = []
         self.current_stimulus: dict[str, Any] | None = None
+        self.information_patches: list[dict[str, Any]] = []
         self.previous_loss: float | None = None
         self.high_residual_streak = 0
         self._ids = {"cell": 0, "organism": 0, "colony": 0, "sample": 0}
@@ -94,54 +100,86 @@ class ColonyMindEngine:
         })
         self.events = self.events[-24:]
 
-    def _vector_for(
+    @staticmethod
+    def _inside_shape(shape: str, x: float, y: float) -> bool:
+        if shape == "circle":
+            return x * x + y * y <= 0.86
+        if shape == "square":
+            return max(abs(x), abs(y)) <= 0.82
+        if shape == "triangle":
+            return -0.92 <= y <= 0.78 and abs(x) <= 0.92 * (y + 0.92) / 1.70
+        raise ValueError(f"Unknown visual generator shape: {shape}")
+
+    def _retina_for(
         self,
         shape: str,
         rotation: float,
+        scale: float,
         noise: float,
         occlusion: float,
+        offset_x: float,
+        offset_y: float,
         rng: random.Random | None = None,
     ) -> np.ndarray:
         source_rng = rng or self.rng
-        base = {
-            "circle": [0.96, 0.12, 0.08, 0.87, 0.91, 0.18, 0.13, 0.82, 0.92, 0.14, 0.10, 0.85, 0.89, 0.15, 0.11, 0.83],
-            "triangle": [0.14, 0.93, 0.81, 0.22, 0.16, 0.88, 0.76, 0.27, 0.13, 0.90, 0.80, 0.21, 0.18, 0.86, 0.74, 0.29],
-            "square": [0.71, 0.78, 0.19, 0.28, 0.68, 0.81, 0.22, 0.25, 0.73, 0.76, 0.18, 0.30, 0.70, 0.80, 0.21, 0.27],
-        }[shape]
-        vector = np.asarray(base, dtype=np.float64)
-        phase = math.sin(rotation) * 0.045
-        vector = vector + np.asarray([phase if index % 2 else -phase for index in range(self.vector_size)])
-        vector = vector + np.asarray([source_rng.uniform(-noise, noise) for _ in range(self.vector_size)])
+        cosine = math.cos(rotation)
+        sine = math.sin(rotation)
+        pixels = np.zeros((self.retina_side, self.retina_side), dtype=np.float64)
+
+        for row in range(self.retina_side):
+            for column in range(self.retina_side):
+                retinal_x = ((column + 0.5) / self.retina_side) * 2.0 - 1.0 - offset_x
+                retinal_y = ((row + 0.5) / self.retina_side) * 2.0 - 1.0 - offset_y
+                local_x = (cosine * retinal_x + sine * retinal_y) / scale
+                local_y = (-sine * retinal_x + cosine * retinal_y) / scale
+                signal = 0.94 if self._inside_shape(shape, local_x, local_y) else 0.025
+                pixels[row, column] = signal + source_rng.uniform(-noise, noise)
+
         if occlusion > 0:
-            start = source_rng.randrange(0, self.vector_size // 2) * 2
-            vector[start : start + 2] *= 1.0 - occlusion
-        return np.clip(vector, 0.0, 1.0)
+            span = max(1, min(self.retina_side - 1, round(self.retina_side * math.sqrt(occlusion))))
+            start_row = source_rng.randrange(0, self.retina_side - span + 1)
+            start_column = source_rng.randrange(0, self.retina_side - span + 1)
+            pixels[start_row : start_row + span, start_column : start_column + span] *= 0.10
+
+        return np.clip(pixels.reshape(self.vector_size), 0.0, 1.0)
 
     def _sample(self) -> tuple[np.ndarray, dict[str, Any], str]:
         shape = self.rng.choice(SHAPES)
         rotation = self.rng.uniform(-math.pi, math.pi)
-        noise = self.rng.uniform(0.005, 0.065)
-        occlusion = self.rng.choice((0.0, 0.0, 0.12, 0.22))
-        vector = self._vector_for(shape, rotation, noise, occlusion)
+        scale = self.rng.uniform(0.38, 0.82)
+        noise = self.rng.uniform(0.008, 0.14)
+        occlusion = self.rng.choice((0.0, 0.0, 0.10, 0.18, 0.25))
+        offset_limit = max(0.04, (1.0 - scale) * 0.34)
+        offset_x = self.rng.uniform(-offset_limit, offset_limit)
+        offset_y = self.rng.uniform(-offset_limit, offset_limit)
+        vector = self._retina_for(shape, rotation, scale, noise, occlusion, offset_x, offset_y)
         sample_id = self._next_id("sample")
         public = {
             "id": sample_id,
             "rotation": round(rotation, 3),
+            "scale": round(scale, 3),
             "noise": round(noise, 3),
             "occlusion": occlusion,
-            "visualShape": shape,
+            "offsetX": round(offset_x, 3),
+            "offsetY": round(offset_y, 3),
+            "retinaSide": self.retina_side,
+            "retinaPixels": vector.round(3).tolist(),
         }
-        # The label is intentionally returned separately and never passed to learning.
+        # The private generator label is returned separately and never passed to learning or public state.
         return vector, public, shape
 
     def _create_organism(self, prototype: np.ndarray, reason: str, parent: Organism | None = None) -> Organism:
         organism_id = self._next_id("organism")
+        information_x, information_y = self._information_coordinates(prototype)
         organism = Organism(
             id=organism_id,
             lineage=parent.lineage if parent else organism_id,
             color=COLORS[(self._ids["organism"] - 1) % len(COLORS)],
             specialization=prototype.round(4).tolist(),
             energy=0.54 if parent else 0.62,
+            x=min(92.0, max(8.0, information_x + self.rng.uniform(-6.0, 6.0))),
+            y=min(92.0, max(8.0, information_y + self.rng.uniform(-6.0, 6.0))),
+            heading=self.rng.uniform(-math.pi, math.pi),
         )
         self.organisms[organism_id] = organism
         self._create_cell(organism, prototype, reason)
@@ -159,6 +197,67 @@ class ColonyMindEngine:
     @staticmethod
     def _distance(vector: np.ndarray, prototype: list[float]) -> float:
         return float(np.mean((vector - np.asarray(prototype)) ** 2))
+
+    def _information_coordinates(self, vector: np.ndarray) -> tuple[float, float]:
+        """Project retinal input into a deterministic 2-D information habitat."""
+        centered = vector - float(np.mean(vector))
+        indices = np.arange(self.vector_size, dtype=np.float64) + 1.0
+        norm = float(np.sum(np.abs(centered))) or 1.0
+        projection_x = float(np.sum(centered * np.sin(indices * 0.731)) / norm)
+        projection_y = float(np.sum(centered * np.cos(indices * 1.173)) / norm)
+        x = 50.0 + math.tanh(projection_x * 4.8) * 38.0
+        y = 50.0 + math.tanh(projection_y * 4.8) * 34.0
+        return x, y
+
+    def _record_information_patch(self, vector: np.ndarray, sample_id: str, novelty: float) -> dict[str, Any]:
+        x, y = self._information_coordinates(vector)
+        patch = {
+            "id": sample_id,
+            "x": round(x, 3),
+            "y": round(y, 3),
+            "amount": round(min(1.0, 0.28 + novelty * 4.5), 3),
+            "novelty": round(novelty, 4),
+            "createdStep": self.step_count,
+            "consumedBy": None,
+        }
+        self.information_patches.append(patch)
+        self.information_patches = self.information_patches[-18:]
+        return patch
+
+    def _move_organisms(
+        self,
+        responses: list[tuple[Organism, float, np.ndarray]],
+        patch: dict[str, Any],
+        winner_id: str,
+    ) -> None:
+        colony_centers: dict[str, tuple[float, float]] = {}
+        for colony in self.colonies.values():
+            members = [self.organisms[member_id] for member_id in colony.member_ids if member_id in self.organisms]
+            if members:
+                colony_centers[colony.id] = (
+                    sum(member.x for member in members) / len(members),
+                    sum(member.y for member in members) / len(members),
+                )
+
+        for index, (organism, activation, _reconstruction) in enumerate(responses):
+            target_x = float(patch["x"])
+            target_y = float(patch["y"])
+            if organism.colony_id in colony_centers and organism.id != winner_id:
+                center_x, center_y = colony_centers[organism.colony_id]
+                target_x = target_x * 0.58 + center_x * 0.42
+                target_y = target_y * 0.58 + center_y * 0.42
+            desired = math.atan2(target_y - organism.y, target_x - organism.x)
+            steering = 0.16 + min(0.20, activation * 0.18)
+            organism.heading += math.atan2(
+                math.sin(desired - organism.heading),
+                math.cos(desired - organism.heading),
+            ) * steering
+            organism.heading += math.sin(self.step_count * 0.17 + index * 2.3) * (0.09 if activation < 0.35 else 0.025)
+            travel = (0.22 + activation * 0.68) * (0.55 + min(1.0, organism.energy) * 0.45)
+            previous_x, previous_y = organism.x, organism.y
+            organism.x = min(94.0, max(6.0, organism.x + math.cos(organism.heading) * travel))
+            organism.y = min(94.0, max(6.0, organism.y + math.sin(organism.heading) * travel))
+            organism.distance_travelled += math.hypot(organism.x - previous_x, organism.y - previous_y)
 
     def _organism_response(self, organism: Organism, vector: np.ndarray) -> tuple[float, np.ndarray, list[tuple[Cell, float]]]:
         scored: list[tuple[Cell, float]] = []
@@ -213,10 +312,21 @@ class ColonyMindEngine:
                 self._create_cell(best, vector, "LOCAL_RESIDUAL_SPECIALIZATION")
         self._create_colony_if_useful()
         for organism in list(self.organisms.values()):
-            if organism.age_steps > 40 and organism.utility < -0.012 and len(self.organisms) > 1:
+            if organism.age_steps > 300 and organism.utility < -0.018 and len(self.organisms) > 1:
+                colony_id = organism.colony_id
                 for cell_id in organism.cells:
                     self.cells.pop(cell_id, None)
                 self.organisms.pop(organism.id, None)
+                if colony_id and colony_id in self.colonies:
+                    colony = self.colonies[colony_id]
+                    colony.member_ids = [member_id for member_id in colony.member_ids if member_id != organism.id]
+                    colony.core_members = [member_id for member_id in colony.core_members if member_id != organism.id]
+                    if len(colony.member_ids) < 2:
+                        for member_id in colony.member_ids:
+                            if member_id in self.organisms:
+                                self.organisms[member_id].colony_id = None
+                        self.colonies.pop(colony_id, None)
+                        self._event("COLONY_DISSOLVED", colony_id, ["INSUFFICIENT_ACTIVE_MEMBERS"], {"remainingMembers": len(colony.member_ids)})
                 self._event("ORGANISM_ARCHIVED", organism.id, ["PERSISTENT_NEGATIVE_MARGINAL_VALUE"], {"utility": organism.utility})
                 break
 
@@ -225,13 +335,26 @@ class ColonyMindEngine:
             self.step_count += 1
             vector, public, _label = self._sample()
             self.current_stimulus = public
+            novelty = min(
+                (self._distance(vector, organism.specialization) for organism in self.organisms.values()),
+                default=1.0,
+            )
+            information_patch = self._record_information_patch(vector, public["id"], novelty)
             if not self.organisms:
-                self._create_organism(vector, "FIRST_UNLABELED_STIMULUS")
+                pioneer = self._create_organism(vector, "FIRST_UNLABELED_STIMULUS")
+                information_patch["consumedBy"] = pioneer.id
+                information_patch["amount"] = 0.12
                 self.loss_history.append(0.0)
                 continue
             responses = [(org, *self._organism_response(org, vector)[:2]) for org in self.organisms.values()]
             responses.sort(key=lambda row: row[1], reverse=True)
             winner, winner_activation, reconstruction = responses[0]
+            self._move_organisms(responses, information_patch, winner.id)
+            information_patch["consumedBy"] = winner.id
+            information_patch["amount"] = round(
+                max(0.06, information_patch["amount"] * (1.0 - winner_activation * 0.72)),
+                3,
+            )
             error = float(np.mean((vector - reconstruction) ** 2))
             previous = self.previous_loss if self.previous_loss is not None else error
             improvement = max(-0.08, min(0.08, previous - error))
@@ -266,8 +389,7 @@ class ColonyMindEngine:
 
     def _state_payload(self) -> dict[str, Any]:
         organisms = []
-        for index, organism in enumerate(self.organisms.values()):
-            angle = index * (math.pi * 2 / max(1, len(self.organisms)))
+        for organism in self.organisms.values():
             organisms.append({
                 "id": organism.id,
                 "lineage": organism.lineage,
@@ -278,8 +400,10 @@ class ColonyMindEngine:
                 "contribution": round(organism.contribution, 4),
                 "colonyId": organism.colony_id,
                 "ageSteps": organism.age_steps,
-                "x": round(50 + math.cos(angle) * 28, 2),
-                "y": round(50 + math.sin(angle) * 24, 2),
+                "x": round(organism.x, 2),
+                "y": round(organism.y, 2),
+                "heading": round(organism.heading, 3),
+                "distanceTravelled": round(organism.distance_travelled, 2),
             })
         return {
             "seed": self.seed,
@@ -300,6 +424,7 @@ class ColonyMindEngine:
             "cells": [asdict(cell) for cell in self.cells.values()],
             "organisms": organisms,
             "colonies": [asdict(colony) for colony in self.colonies.values()],
+            "informationPatches": self.information_patches,
             "events": list(reversed(self.events[-12:])),
         }
 
@@ -322,7 +447,18 @@ class ColonyMindEngine:
         assignments: list[tuple[str, str]] = []
         for label in SHAPES:
             for offset in range(8):
-                vector = self._vector_for(label, offset * 0.32, 0.025, 0.0, evaluator_rng)
+                scale = 0.42 + (offset % 4) * 0.11
+                shift = ((offset % 3) - 1) * 0.07
+                vector = self._retina_for(
+                    label,
+                    offset * 0.39,
+                    scale,
+                    0.035,
+                    0.10 if offset % 4 == 0 else 0.0,
+                    shift,
+                    -shift,
+                    evaluator_rng,
+                )
                 if not self.organisms:
                     assigned = "unassigned"
                 else:
@@ -354,7 +490,16 @@ class ColonyMindEngine:
         before = self.state_hash()
         evaluator_rng = random.Random(f"{self.seed}:ablation:{organism_id}")
         vectors = [
-            self._vector_for(shape, index * 0.27, 0.03, 0.0, evaluator_rng)
+            self._retina_for(
+                shape,
+                index * 0.31,
+                0.45 + (index % 3) * 0.12,
+                0.035,
+                0.0,
+                ((index % 3) - 1) * 0.06,
+                0.0,
+                evaluator_rng,
+            )
             for index, shape in enumerate(SHAPES * 4)
         ]
 

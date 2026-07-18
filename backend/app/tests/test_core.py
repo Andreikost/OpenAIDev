@@ -1,4 +1,7 @@
 from app.core import ColonyMindEngine
+import random
+
+import numpy as np
 
 
 def test_engine_starts_without_learned_structure() -> None:
@@ -50,7 +53,29 @@ def test_evaluators_do_not_change_the_next_learning_steps() -> None:
 
 
 def test_novel_unlabeled_stimuli_can_form_a_colony() -> None:
-    engine = ColonyMindEngine(seed=42)
+    engine = ColonyMindEngine(seed=20260718)
     state = engine.step(240)
     assert state["metrics"]["activeOrganisms"] >= 2
     assert state["metrics"]["activeColonies"] >= 1
+    organism_ids = {organism["id"] for organism in state["organisms"]}
+    assert all(set(colony["member_ids"]).issubset(organism_ids) for colony in state["colonies"])
+
+
+def test_public_stimulus_is_a_label_free_retina() -> None:
+    engine = ColonyMindEngine(seed=42)
+    vector, public, private_label = engine._sample()
+
+    assert private_label in ("circle", "triangle", "square")
+    assert "visualShape" not in public
+    assert public["retinaSide"] == 16
+    assert len(public["retinaPixels"]) == 16 * 16
+    assert vector.shape == (16 * 16,)
+    assert 0.38 <= public["scale"] <= 0.82
+
+
+def test_retina_changes_with_scale_rotation_noise_and_position() -> None:
+    engine = ColonyMindEngine(seed=42)
+    first = engine._retina_for("triangle", 0.0, 0.42, 0.01, 0.0, 0.0, 0.0, random.Random(7))
+    transformed = engine._retina_for("triangle", 1.1, 0.78, 0.10, 0.18, 0.12, -0.08, random.Random(7))
+
+    assert float(np.mean(np.abs(first - transformed))) > 0.08

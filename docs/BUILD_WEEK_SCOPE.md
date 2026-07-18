@@ -28,4 +28,9 @@ distinguish the earlier experimental foundation from the competition product.
 
 ## Reuse manifest
 
-No implementation component has been imported yet. Add entries as reuse occurs.
+- `D:/GitHub/AI/Exp 6 Biology/Deploy 046/ai-english-ui-046.tar.gz`,
+  `BiologicalSystemExperiment.tsx`: conceptual reference only. No source code was
+  copied. ColonyMind rewrites its continuous habitat, foraging, energy, colony
+  cohesion, and multiscale inspection ideas as an information ecology: retinal
+  observations are food, reconstruction benefit is intake, model maintenance is
+  metabolic cost, and organism motion follows measured activation and utility.

@@ -21,9 +21,8 @@ a large fixed neural network, it grows neural cells, forms small organism
 networks, and assembles colonies only when cooperation improves learning more
 than it costs.
 
-Users can watch cells and synapses emerge, inspect organism specialization,
-observe persistent colonies, draw transformed shapes, and reveal hidden-label
-evaluation only after training.
+Users can watch cells emerge, inspect organism specialization, observe
+persistent colonies, and reveal hidden-label evaluation only after training.
 
 ## Why shapes first
 
@@ -35,14 +34,15 @@ complex visual patterns and eventually camera-based perception.
 ## How we built it
 
 ColonyMind combines a React and TypeScript visual experience with a deterministic
-Python and NumPy learning engine. The system learns through reconstruction,
-consistency across transformed views, sparse routing, dynamic topology, and a
-resource ledger that compares learning benefit with structural cost.
+Python and NumPy learning engine. The P0 system learns through feature-vector
+reconstruction, dynamic topology, and a resource ledger that compares learning
+benefit with structural cost. Its structural review can add capacity for a
+persistent residual or a sufficiently novel unlabeled visual regime.
 
-GPT-5.6 turns a natural-language learning goal into a validated geometric
-curriculum and explains real structured events. It never changes model weights,
-topology, routing, or hidden evaluation. Codex supports architecture, code,
-testing, visualization, documentation, and deployment throughout Build Week.
+Codex supported architecture, implementation, testing, visualization,
+documentation, and deployment throughout Build Week. GPT-5.6 curriculum and
+structured-event explanation are planned next steps; they are not represented
+as shipped P0 behavior.
 
 ## Challenges we ran into
 

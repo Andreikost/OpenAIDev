@@ -3,9 +3,10 @@
 ## New competition work
 
 The ColonyMind application, product experience, organism-network abstraction,
-colony-of-organisms layer, resource-aware comparison, GPT-5.6 curriculum and
-explanation features, evidence reports, tests, documentation, and deployment
-under `openaidev.automationfreelancer.com` are Build Week deliverables.
+colony-of-organisms layer, resource-aware comparison, evidence reports, tests,
+documentation, and deployment under `openaidev.automationfreelancer.com` are
+Build Week deliverables. A GPT-5.6 curriculum and explanation layer is a
+planned Build Week extension, not a P0 claim until it is implemented and tested.
 
 ## Pre-existing references
 

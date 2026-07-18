@@ -1,0 +1,21 @@
+services:
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      APP_ENV: production
+      COLONYMIND_SEED: ${COLONYMIND_SEED:-20260718}
+    expose:
+      - "8201"
+    mem_limit: 320m
+    cpus: "0.50"
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "127.0.0.1:${COLONYMIND_PORT:-8200}:8080"
+    mem_limit: 160m
+    cpus: "0.25"

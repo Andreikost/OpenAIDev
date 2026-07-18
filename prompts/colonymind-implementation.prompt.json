@@ -1,0 +1,555 @@
+{
+  "promptMetadata": {
+    "name": "ColonyMind Build Week Implementation",
+    "version": "1.0.0",
+    "language": "English",
+    "createdAt": "2026-07-18",
+    "repository": "https://github.com/Andreikost/OpenAIDev",
+    "workspace": "D:/GitHub/OpenAIDev",
+    "publicDomain": "https://openaidev.automationfreelancer.com",
+    "competition": "OpenAI Build Week 2026",
+    "targetTrack": "Education",
+    "projectName": "ColonyMind",
+    "tagline": "A self-organizing vision architecture that learns more with less."
+  },
+  "operatingRoles": [
+    {
+      "role": "Principal AI Systems Architect",
+      "responsibility": "Design a modular, deterministic, resource-aware learning architecture whose topology can grow, specialize, cooperate, split, merge, and prune."
+    },
+    {
+      "role": "Bio-Inspired Computing Research Engineer",
+      "responsibility": "Translate biological metaphors into measurable computational mechanisms and reject decorative biology that has no testable function."
+    },
+    {
+      "role": "Unsupervised and Continual Learning Engineer",
+      "responsibility": "Implement label-free training, paired-view consistency, reconstruction, novelty detection, hidden evaluation, and distribution-shift experiments."
+    },
+    {
+      "role": "Compute-Efficiency Engineer",
+      "responsibility": "Measure active structure, memory, operations, latency, and resource proxies; make every new structure justify its maintenance cost."
+    },
+    {
+      "role": "Senior React Product Engineer",
+      "responsibility": "Create a coherent, accessible, visually memorable product experience that makes self-organization understandable within seconds."
+    },
+    {
+      "role": "Scientific Visualization Designer",
+      "responsibility": "Render cells, organisms, colonies, information flow, confidence, specialization, and causal evidence without misleading the user."
+    },
+    {
+      "role": "Experimental Methodologist",
+      "responsibility": "Require baselines, ablations, multiple seeds, label isolation, deterministic replay, and honest uncertainty before accepting claims."
+    },
+    {
+      "role": "Security and MLOps Engineer",
+      "responsibility": "Protect credentials, produce reproducible containers, version every deployment through GitHub, and deploy safely to the VPS."
+    },
+    {
+      "role": "Hackathon Product Storyteller",
+      "responsibility": "Keep the experience concise, compelling, judge-friendly, and grounded in a working non-trivial implementation."
+    }
+  ],
+  "mission": {
+    "primary": "Build ColonyMind as a working React application backed by a deterministic Python learning engine. The system must begin without a fixed learned topology, receive unlabeled visual information, grow neural cells into small organism networks, and form colonies of complementary organisms only when collective learning benefit exceeds resource cost.",
+    "initialBenchmark": "Use circles, triangles, and squares as a controlled wind-tunnel benchmark for the first phase. They are not the final product. They allow every growth, specialization, cooperation, and pruning decision to be inspected and tested.",
+    "longTermDirection": "Extend the same resource-aware architecture toward more complex visual patterns and eventually camera streams, allocating compute to novelty, uncertainty, and useful structure instead of processing every input with a large fixed network.",
+    "coreClaim": "ColonyMind does not start with a finished neural network. It grows an architecture and must earn every unit of computation it keeps."
+  },
+  "nonNegotiableTruths": [
+    "Do not claim biological realism, artificial life, general intelligence, or measured electrical energy savings unless directly demonstrated.",
+    "Do not describe the initial benchmark as a production camera system. The camera direction is future work.",
+    "Do not use labels, shape names, template matching, or evaluator feedback to change weights, topology, routing, energy, reproduction, or pruning.",
+    "Do not hard-code a target number of cells, organisms, colonies, shape communities, or accuracy percentage.",
+    "Technical safety ceilings may prevent memory exhaustion, but they must be configurable, visible, and reported as infrastructure limits rather than learning objectives.",
+    "Do not call proxy metrics ARI, NMI, FLOPs, watts, or energy consumption unless they are computed according to their standard definitions.",
+    "Do not fabricate training progress, events, explanations, evaluation scores, benchmarks, or screenshots.",
+    "Every visible event must be reconstructible from logged state and a deterministic seed.",
+    "Every biological metaphor must map to a measurable computational role and an ablation or acceptance test."
+  ],
+  "productNarrative": {
+    "audience": [
+      "Students learning how unsupervised and adaptive AI systems work",
+      "Educators teaching neural networks, clustering, efficiency, and experimental reasoning",
+      "Developers and researchers exploring resource-aware dynamic architectures"
+    ],
+    "threeSecondMessage": "Feed it unlabeled shapes and watch a neural ecosystem organize itself.",
+    "thirtySecondMessage": "ColonyMind begins with no learned cells or colonies. As unlabeled visual patterns arrive, small organism networks grow and specialize. Organisms form colonies only when cooperation improves learning more than it costs. Hidden labels are revealed after training to test whether meaningful visual communities emerged.",
+    "judgeMoment": "Start from zero, briefly train live, jump through a disclosed deterministic checkpoint, draw a noisy or rotated triangle, show the participating colony and its uncertainty, ablate one organism, and display the measured capability loss and GPT-5.6 explanation grounded in the event report.",
+    "visualIdentity": {
+      "palette": ["deep navy", "electric cyan", "violet", "warm amber"],
+      "tone": "scientific, premium, clear, and credible",
+      "asset": "assets/colonymind-devpost-thumbnail.png"
+    }
+  },
+  "bioInspiredMapping": [
+    {
+      "concept": "Information food",
+      "implementation": "An unlabeled image or paired transformed view with finite training value."
+    },
+    {
+      "concept": "Nutrients",
+      "implementation": "Reducible reconstruction error, novelty, uncertainty, complementary residual information, and transfer value."
+    },
+    {
+      "concept": "Neural cell",
+      "implementation": "An adaptive feature/prototype unit with activation, local plasticity, cost, utility, age, lineage, and contribution history."
+    },
+    {
+      "concept": "Synapse",
+      "implementation": "A sparse learned connection with coactivation, predictive gain, bandwidth cost, and pruning evidence."
+    },
+    {
+      "concept": "Organism",
+      "implementation": "A small dynamic neural expert containing cells, synapses, a latent response, a lightweight decoder, an energy ledger, and a specialization profile."
+    },
+    {
+      "concept": "Colony",
+      "implementation": "A persistent sparse mixture of complementary organism experts whose joint prediction must outperform the best individual after communication cost."
+    },
+    {
+      "concept": "Energy",
+      "implementation": "A documented resource ledger based on marginal loss reduction and transfer benefit minus active-cell, synapse, communication, memory, and compute-proxy costs."
+    },
+    {
+      "concept": "Growth",
+      "implementation": "Creation of a cell, connection, organism, or colony only after persistent underserved residual or complementary learning demand."
+    },
+    {
+      "concept": "Apoptosis",
+      "implementation": "Removal after a maturity and grace window when marginal contribution stays below maintenance cost."
+    },
+    {
+      "concept": "Reproduction",
+      "implementation": "A reversible structural proposal that derives a new organism from a useful lineage to cover persistent residual demand."
+    },
+    {
+      "concept": "Mutation",
+      "implementation": "A small, logged, reversible topology or parameter proposal with explicit no-op behavior at structural boundaries."
+    },
+    {
+      "concept": "Biome",
+      "implementation": "A visual data distribution such as clean shapes, rotations, occlusion, noise, hand drawings, or a later camera domain."
+    },
+    {
+      "concept": "Migration",
+      "implementation": "An organism changes routing preference or colony membership when expected marginal utility elsewhere exceeds switching and communication costs."
+    },
+    {
+      "concept": "Lineage",
+      "implementation": "A reproducible ancestry record for structural inheritance, specialization, split, merge, and extinction analysis."
+    }
+  ],
+  "technicalStack": {
+    "frontend": {
+      "language": "TypeScript",
+      "framework": "React 19 with Vite",
+      "visualization": "HTML Canvas for the ecosystem, SVG or DOM for accessible charts and inspectors",
+      "testing": "Playwright for end-to-end flows and Vitest for pure client utilities if needed",
+      "rules": [
+        "Keep the main demo usable at 1366x768 and responsive down to tablet width.",
+        "Render simulation state at a throttled UI rate independent from engine step rate.",
+        "Show loading, disconnected, no-model, paused, error, and completed-evaluation states explicitly.",
+        "Use English for all competition-facing interface text."
+      ]
+    },
+    "backend": {
+      "language": "Python 3.12",
+      "framework": "FastAPI, Uvicorn, Pydantic, and NumPy",
+      "transport": "REST for commands and reports; WebSocket or Server-Sent Events for throttled state updates",
+      "testing": "pytest with deterministic fixtures and invariant tests",
+      "persistence": "Versioned JSON checkpoints and JSONL event logs for the MVP; no database is required unless a demonstrated need appears"
+    },
+    "deployment": {
+      "containers": "Docker Compose with separate frontend and API services",
+      "reverseProxy": "Use the existing VPS reverse-proxy convention after read-only inspection; route openaidev.automationfreelancer.com without disrupting existing applications",
+      "sourceOfTruth": "GitHub repository Andreikost/OpenAIDev",
+      "secrets": "VPS and OpenAI credentials remain outside Git in local or server environment files"
+    }
+  },
+  "repositoryLayout": {
+    "required": [
+      "frontend/src/components",
+      "frontend/src/features/ecosystem",
+      "frontend/src/features/evaluation",
+      "frontend/src/services",
+      "frontend/src/styles",
+      "frontend/tests",
+      "backend/app/api",
+      "backend/app/domain",
+      "backend/app/learning",
+      "backend/app/evaluation",
+      "backend/app/ai",
+      "backend/app/persistence",
+      "backend/app/telemetry",
+      "backend/app/tests",
+      "docs/architecture",
+      "docs/devpost",
+      "docs/experiments",
+      "prompts",
+      "deploy"
+    ],
+    "keyModules": [
+      "backend/app/domain/cell.py",
+      "backend/app/domain/organism.py",
+      "backend/app/domain/colony.py",
+      "backend/app/domain/ecosystem.py",
+      "backend/app/domain/resource_ledger.py",
+      "backend/app/learning/sensory_adapter.py",
+      "backend/app/learning/losses.py",
+      "backend/app/learning/router.py",
+      "backend/app/learning/lifecycle.py",
+      "backend/app/evaluation/hidden_evaluator.py",
+      "backend/app/ai/curriculum_service.py",
+      "backend/app/ai/explanation_service.py"
+    ]
+  },
+  "modelSpecification": {
+    "sensoryInput": {
+      "phaseOneShapes": ["circle", "triangle", "square"],
+      "trainingLabels": "None",
+      "pairedViews": ["rotation", "translation", "stroke variation", "noise", "partial occlusion"],
+      "representation": "Begin with a deterministic normalized grayscale edge-and-geometry descriptor. Preserve a replaceable adapter boundary for later learned encoders or camera frames.",
+      "requirement": "Store sample identity separately from hidden ground truth and prove that the training data path cannot import the hidden label store."
+    },
+    "cell": {
+      "state": [
+        "id",
+        "organismId",
+        "prototype",
+        "decoderPrototype",
+        "activation",
+        "activationEma",
+        "utility",
+        "energy",
+        "ageSteps",
+        "maturity",
+        "redundancy",
+        "informationGain",
+        "reconstructionGain",
+        "consistencyGain",
+        "lastActiveStep",
+        "lineage"
+      ],
+      "birth": "Create a cell only when persistent local residual, novelty, or ambiguity cannot be served by mature existing cells and the expected benefit exceeds its warm-up and maintenance cost.",
+      "prune": "Prune only after maturity and a grace window when counterfactual or approximated marginal contribution remains below maintenance cost. Never prune based on hidden labels.",
+      "learning": "Use local prototype and decoder updates gated by activation, metabolic/resource budget, and an eligibility trace."
+    },
+    "organism": {
+      "definition": "A small dynamically sized neural expert with cells, sparse synapses, latent activation, a decoder, specialization statistics, colony membership state, and a closed resource ledger.",
+      "activation": "Compute a normalized organism response from cell evidence, sparse recurrent/coactivation evidence, homeostasis, and uncertainty.",
+      "prediction": "Produce a lightweight reconstruction and latent vector so contribution can be measured without labels.",
+      "reproduction": "When a persistent residual niche remains underserved and an existing lineage provides a useful starting point, propose a derived organism with small reversible structural variation.",
+      "death": "Archive an organism only when low marginal utility persists through a documented grace window and no colony depends causally on it."
+    },
+    "colony": {
+      "definition": "A persistent sparse ensemble of organism experts with a stable ID, core members, candidate members, exiting members, lineage, communication budget, and joint prediction.",
+      "formationCriterion": "Form a colony only when joint unsupervised loss plus communication cost remains lower than the best member loss across a sustained evidence window.",
+      "memberStates": ["candidate", "confirmed", "exiting"],
+      "stability": "Use entry confirmation, exit grace, and core-member continuity so colonies do not flicker between steps.",
+      "split": "Split after sustained evidence of two internally coherent but mutually interfering residual modes.",
+      "merge": "Merge after a read-only counterfactual shows redundant structure or positive synergy after communication and migration costs.",
+      "collectivePrediction": "Use a sparse soft gate based on expected information gain, specialization match, uncertainty, congestion, and cost."
+    },
+    "ecosystemRouting": {
+      "principle": "Use Ideal Free Distribution as resource routing, not as a visual metaphor.",
+      "utility": "Expected reducible error plus novelty value plus complementary information minus congestion, compute, communication, and switching costs.",
+      "rule": "Route a finite learning opportunity to a small top-k set. Do not broadcast every sample to every organism, because selective routing is central to compute efficiency.",
+      "migration": "Allow colony or organism migration only when relative destination utility exceeds current utility plus hysteresis and switching cost."
+    },
+    "unsupervisedObjectives": {
+      "loss": "L = L_reconstruction + w1*L_view_consistency + w2*L_variance + w3*L_decorrelation + w4*L_sparsity + w5*L_homeostasis + w6*L_resource",
+      "requirements": [
+        "Document every weight and expose it in the run configuration.",
+        "Use paired transformed views to encourage invariance without labels.",
+        "Prevent trivial collapse using variance, decorrelation, and homeostatic terms.",
+        "Treat the resource term as an optimization pressure and report it separately from task loss."
+      ]
+    },
+    "resourceLedger": {
+      "primaryUpdate": "deltaEnergy = alpha*marginalLossReduction + beta*transferBenefit + gamma*noveltyServed - cellCost - synapseCost - communicationCost - memoryCost - switchingCost",
+      "marginalContribution": "Periodically estimate L_without_component - L_with_component using deterministic read-only ablations on a stable hashed sample subset. Ablations must not advance real RNG or modify live state.",
+      "tracked": [
+        "activeCells",
+        "activeSynapses",
+        "activationOperationsProxy",
+        "bytesOfLearnedState",
+        "inferenceLatencyMs",
+        "trainingLatencyMs",
+        "communicationEdgesUsed",
+        "marginalLossReduction",
+        "resourceScore",
+        "optionalProcessCpuTime",
+        "optionalPeakRssMb"
+      ],
+      "languageRule": "Call this a compute/resource proxy until physical energy is measured in a controlled environment."
+    },
+    "hiddenEvaluation": {
+      "isolation": "The hidden evaluator owns labels and cannot be imported by training, routing, lifecycle, energy, or GPT curriculum modules.",
+      "integrity": "Hash model state before and after evaluation and fail if evaluation changes it.",
+      "metrics": [
+        "purity",
+        "normalized mutual information using a standard implementation",
+        "adjusted Rand index using a standard implementation",
+        "held-out reconstruction loss",
+        "view consistency",
+        "resource score",
+        "latency",
+        "active structure"
+      ],
+      "display": "Keep hidden labels covered until the user explicitly reveals evaluation after training."
+    },
+    "reproducibility": {
+      "identity": ["seed", "runId", "version", "configurationHash", "stepCount", "stateHash"],
+      "speedRule": "1x, 5x, and 10x may change only the number of fixed engine steps processed per UI frame, never dt, ordering, RNG, learning rules, or state transitions.",
+      "checkpoints": "Provide disclosed deterministic checkpoints for the demo and verify their schema and hash on load."
+    }
+  },
+  "gpt56Integration": {
+    "purpose": "Make GPT-5.6 meaningful but outside the learning loop.",
+    "features": [
+      {
+        "name": "Curriculum compiler",
+        "input": "A natural-language educational goal such as: Learn circles, triangles, and squares under rotation, noise, and partial occlusion.",
+        "output": "A strictly validated CurriculumSpec JSON with allowed shapes, transformations, phases, seeds, sample counts, and evaluation gates.",
+        "constraint": "The model cannot inject labels into training samples or arbitrary executable code."
+      },
+      {
+        "name": "Evidence-grounded explainer",
+        "input": "A bounded structured snapshot containing events, metrics, ablation deltas, run identity, and uncertainty.",
+        "output": "A concise explanation of why a cell, organism, or colony changed, citing the provided metrics and clearly separating observation from inference.",
+        "constraint": "The explanation never changes model state and must say when the evidence is insufficient."
+      }
+    ],
+    "configuration": {
+      "apiKey": "Read OPENAI_API_KEY only from the server environment.",
+      "model": "Read OPENAI_MODEL from the environment; use GPT-5.6 when available for the competition and document the exact model string used.",
+      "failureMode": "If credentials or model access are unavailable, keep the deterministic learning application working, disable GPT actions with an honest message, and never substitute fabricated responses."
+    },
+    "security": [
+      "Validate GPT-produced curriculum JSON with Pydantic and an allowlist.",
+      "Limit prompt size, output size, request frequency, and curriculum complexity.",
+      "Never send credentials, private paths, hidden evaluation labels, or unrelated server data to the model."
+    ]
+  },
+  "userExperience": {
+    "mainLayout": [
+      "A compact hero that states the problem and offers Start from zero, Load demo checkpoint, and Draw a test shape.",
+      "An information stream showing current unlabeled stimuli and transformations.",
+      "A central ecosystem canvas showing cells inside organisms and organisms inside persistent colonies.",
+      "A resource panel showing task loss, active cells, active synapses, memory proxy, latency, and resource score.",
+      "A selected-entity inspector explaining specialization, lineage, contribution, costs, and recent lifecycle reasons.",
+      "A hidden-evaluation panel that stays covered until explicitly revealed.",
+      "An experiment comparison panel for fixed baseline, one dynamic organism, and full colony system.",
+      "A GPT-5.6 curriculum and explanation panel with concise grounded output."
+    ],
+    "requiredFlows": [
+      "Reset to a truly empty learned state.",
+      "Start or pause deterministic training.",
+      "Change speed without changing results.",
+      "Select a cell, organism, or colony.",
+      "Draw or upload a simple test image without training on its label.",
+      "Run a read-only hidden evaluation.",
+      "Run an organism or colony ablation and restore live state exactly.",
+      "Export a versioned JSON evidence report.",
+      "Copy a concise judge-ready run summary."
+    ],
+    "accessibility": [
+      "Do not encode identity only with color.",
+      "Provide readable labels, keyboard access for controls, focus states, and sufficient contrast.",
+      "Respect reduced-motion preference by simplifying particle animation without changing engine behavior."
+    ]
+  },
+  "experimentalDesign": {
+    "systems": [
+      {
+        "name": "Fixed baseline",
+        "description": "A small fixed-capacity prototype or autoencoder baseline with a comparable parameter budget."
+      },
+      {
+        "name": "Single dynamic organism",
+        "description": "Cells and synapses can grow and prune, but no organism colonies exist."
+      },
+      {
+        "name": "ColonyMind",
+        "description": "Multiple dynamic organism experts with sparse routing and persistent colony cooperation."
+      }
+    ],
+    "campaigns": [
+      "Train circles, triangles, and squares without labels under matched seeds and sample order.",
+      "Test clean held-out shapes, rotation, translation, noise, occlusion, and hand drawings.",
+      "Introduce distribution shift after the initial curriculum and measure forgetting and structural response.",
+      "Ablate high-contribution and low-contribution organisms to validate causal attribution.",
+      "Run at least five independent seeds for final benchmark tables if time permits; never generalize from one seed."
+    ],
+    "primaryComparisons": [
+      "hidden clustering quality",
+      "held-out unsupervised loss",
+      "active cells and synapses",
+      "learned-state bytes",
+      "training and inference latency",
+      "resource score",
+      "robustness after ablation",
+      "forgetting after distribution shift"
+    ]
+  },
+  "implementationPhases": [
+    {
+      "phase": "P0 - Honest vertical slice",
+      "priority": 0,
+      "deliverables": [
+        "Scaffold React/Vite frontend and FastAPI/NumPy backend.",
+        "Implement deterministic unlabeled shape generator and paired transformations.",
+        "Implement cell, organism, simple colony, resource ledger, sparse routing, reconstruction, and view consistency.",
+        "Implement hidden label isolation and state-hash evaluation guard.",
+        "Render a working zero-to-learning ecosystem and entity inspector.",
+        "Export a versioned evidence report.",
+        "Add Docker Compose and local setup documentation."
+      ],
+      "gate": "A clean clone can start the application; the system begins with zero learned structures, learns without labels, produces deterministic reports, and passes label-isolation tests."
+    },
+    {
+      "phase": "P1 - Competition differentiators",
+      "priority": 1,
+      "deliverables": [
+        "Persistent colony membership with candidate, confirmed, and exiting states.",
+        "Read-only ablation and marginal contribution evidence.",
+        "Fixed vs dynamic-organism vs colony comparison.",
+        "Live drawing, hidden reveal, and disclosed checkpoint demo.",
+        "GPT-5.6 curriculum compiler and evidence-grounded explanation.",
+        "Playwright judge journey and benchmark tests."
+      ],
+      "gate": "The demo proves at least one measurable benefit or honest tradeoff of colonies and explains it without hidden labels entering training."
+    },
+    {
+      "phase": "P2 - Polish and submission",
+      "priority": 2,
+      "deliverables": [
+        "Responsive visual polish, accessibility, reduced motion, empty/error states, and concise onboarding.",
+        "Five-seed benchmark report or an explicit limitation if the campaign cannot finish.",
+        "Hosted judge-accessible instance with no login requirement.",
+        "README with pre-existing versus Build Week work, Codex collaboration, GPT-5.6 integration, setup, architecture, testing, and limitations.",
+        "Devpost story, screenshots, less-than-three-minute video script, and testing instructions."
+      ],
+      "gate": "The hosted app, repository, README, demo video, and Devpost text all describe the same verified behavior."
+    },
+    {
+      "phase": "Future - Complex vision",
+      "priority": 3,
+      "deliverables": [
+        "Composite shapes, textures, natural image patches, temporal novelty, and opt-in camera streams.",
+        "Privacy-preserving local preprocessing and adaptive frame routing.",
+        "Controlled hardware energy measurement where supported."
+      ],
+      "gate": "Do not present these as completed Build Week capabilities unless implemented and demonstrated."
+    }
+  ],
+  "acceptanceTests": {
+    "unitAndInvariant": [
+      "The training module cannot import or access the hidden label store.",
+      "Hidden evaluation leaves the model hash and RNG state unchanged.",
+      "A read-only ablation leaves the live model hash and RNG state unchanged after restoration.",
+      "The same seed, configuration, and step count produce the same state hash at 1x, 5x, and 10x.",
+      "A cell cannot gain positive net resource credit without measurable unsupervised contribution or transfer benefit.",
+      "A structural proposal at a boundary produces an explicit no-op rather than the opposite mutation.",
+      "A transient membership change cannot immediately dissolve or recreate a colony.",
+      "Every lifecycle event contains entity ID, step, reason codes, metrics before, and metrics after.",
+      "Standard clustering metrics match trusted library results on fixed fixtures.",
+      "Reports validate against a versioned schema."
+    ],
+    "endToEnd": [
+      "A user can start from zero and observe the first cell, organism, and colony without a page reload.",
+      "A user can draw a transformed shape and inspect the learned community before revealing its hidden label.",
+      "A user can compare the three system variants on the same seed and curriculum.",
+      "A user can ablate an organism, see the measured delta, and restore the original state.",
+      "A user can request a GPT-5.6 curriculum and explanation when configured, with graceful honest behavior when not configured.",
+      "The full judge journey works in a fresh browser session without authentication."
+    ],
+    "releaseGates": [
+      "Frontend typecheck and production build pass.",
+      "Backend unit and invariant tests pass.",
+      "Playwright judge journey passes against the production containers.",
+      "No credential, key, password, private host detail, or environment file is tracked by Git.",
+      "The production health endpoint, frontend, API stream, report export, and GPT feature gate are verified after deployment.",
+      "Claims in README and Devpost are supported by saved reports or are labeled as future work."
+    ]
+  },
+  "securityAndSecrets": {
+    "rules": [
+      "Inspect D:/GitHub/AI only as a read-only reference for existing deployment conventions and locally stored VPS credentials.",
+      "Never print, summarize, copy, commit, upload, or include credential values in prompts, logs, screenshots, reports, or chat responses.",
+      "Never copy an existing .env, SSH private key, password file, token, or credential bundle into OpenAIDev.",
+      "Create only .env.example files containing names and safe placeholders.",
+      "Add .env, .env.*, secrets/, credentials/, *.pem, *.key, checkpoint data, reports containing private information, and local server inventories to .gitignore.",
+      "Use server-side environment variables and least-privilege credentials for the OpenAI API and GitHub deployment access.",
+      "Before every commit, scan staged paths and diffs for secret-like values."
+    ]
+  },
+  "gitAndDeploymentWorkflow": {
+    "localGit": {
+      "preferred": "Use GitHub Desktop or its bundled Git executable when git is not on PATH.",
+      "knownExecutable": "C:/Users/Andres/AppData/Local/GitHubDesktop/app-3.6.3/resources/app/git/cmd/git.exe",
+      "branching": "Use a focused agent/colonymind-mvp branch for implementation and a draft pull request into main once GitHub CLI or the GitHub connector is available.",
+      "commits": [
+        "Commit only coherent verified milestones.",
+        "Use terse intent-based messages.",
+        "Stage explicit paths and preserve unrelated user changes.",
+        "Do not commit generated dependencies, local reports, environment files, or credentials."
+      ]
+    },
+    "github": {
+      "remote": "origin https://github.com/Andreikost/OpenAIDev.git",
+      "rule": "GitHub is the only source used for VPS application updates. Do not deploy an uncommitted local archive as the primary release path.",
+      "release": "Merge only after required checks pass; create an annotated version tag for judge-facing releases."
+    },
+    "vps": {
+      "domain": "openaidev.automationfreelancer.com",
+      "discovery": "Read existing AI deployment scripts and server configuration without exposing secrets. Verify the exact host, SSH identity, reverse proxy, Docker network, and application path before mutation.",
+      "recommendedPath": "/opt/openaidev",
+      "deploymentPattern": [
+        "Create a timestamped recoverable backup of current OpenAIDev application state if one exists.",
+        "Clone or pull the tested GitHub release into the verified application path.",
+        "Load secrets from a server-only environment file outside Git.",
+        "Build production containers with Docker Compose.",
+        "Start or update only OpenAIDev services without interrupting unrelated VPS applications.",
+        "Validate container health, reverse proxy routing, TLS, API connectivity, and the complete judge journey.",
+        "Record deployed commit SHA, configuration hash, timestamp, and health result in a non-secret deployment report."
+      ],
+      "rollback": "If health checks fail, restore the previous tested commit or timestamped backup and verify recovery."
+    }
+  },
+  "documentationDeliverables": [
+    "README.md with a judge-first overview, quick start, architecture, screenshots, testing, verified results, limitations, Codex collaboration, GPT-5.6 usage, and Build Week scope.",
+    "docs/architecture/system.md with data flow and label-isolation boundaries.",
+    "docs/architecture/resource-ledger.md with formulas, units, and proxy limitations.",
+    "docs/experiments/baselines.md with fixed, dynamic-organism, and colony protocols.",
+    "docs/experiments/results.md generated only from saved evidence reports.",
+    "docs/devpost/project-story.md with concise public copy.",
+    "docs/devpost/demo-script.md targeting 2 minutes 40 seconds.",
+    "docs/BUILD_WEEK_SCOPE.md distinguishing pre-existing references from new work.",
+    "docs/CODEX_COLLABORATION.md recording meaningful build decisions and verified contributions without exposing private session content."
+  ],
+  "executionProtocol": [
+    "Start by inspecting the current OpenAIDev repository, relevant AI reference modules, and the VPS deployment convention. Do not mutate the VPS during discovery.",
+    "Write an implementation checklist and baseline manifest before copying or adapting any prior code.",
+    "Document every reused pre-existing component and its original path in BUILD_WEEK_SCOPE.md.",
+    "Implement P0 as a complete vertical slice before adding biological detail or visual polish.",
+    "Keep the engine deterministic and independent from animation timing.",
+    "Run targeted tests after each module, then full backend, frontend, and end-to-end checks at every phase gate.",
+    "Update documentation from verified behavior in the same milestone commit.",
+    "Do not deploy until local production containers and the judge journey pass.",
+    "After deployment, verify from the public domain and save a non-secret deployment report.",
+    "End each work session with current status, evidence, unresolved risks, and the next smallest safe milestone."
+  ],
+  "definitionOfDone": [
+    "A judge can open the public URL without credentials and understand the project in under 30 seconds.",
+    "The system begins with zero learned structure and demonstrates label-free self-organization on basic shapes.",
+    "Cells form organism networks and organism networks form persistent colonies for measurable unsupervised reasons.",
+    "The comparison shows an honest benefit or tradeoff between a fixed baseline, one dynamic organism, and ColonyMind.",
+    "Resource efficiency is reported with clear units and limitations.",
+    "GPT-5.6 compiles a constrained curriculum and explains structured evidence without entering the learning loop.",
+    "The application, tests, reports, README, Devpost page, and video tell the same verifiable story.",
+    "All code and documentation are versioned in GitHub, the VPS runs a known commit, and no secrets are in the repository."
+  ],
+  "finalInstruction": "Build an honest, elegant, non-trivial vertical slice. The basic shapes are the controlled benchmark, not the destination. Prove that self-organization and colonies provide measurable learning value per unit of resource, make every mechanism inspectable, and prefer a verified result over an impressive but unsupported claim."
+}

@@ -232,6 +232,7 @@ export default function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
   const [ablation, setAblation] = useState<Ablation | null>(null);
+  const [reporting, setReporting] = useState(false);
   const [notice, setNotice] = useState('Connect to the learning engine to begin.');
 
   const refresh = useCallback(async () => {
@@ -267,9 +268,30 @@ export default function App() {
   }
   async function revealEvaluation() { setEvaluation(await api.evaluate()); }
   async function runAblation(organism: Organism) { setAblation(await api.ablate(organism.id)); }
+  async function downloadReport() {
+    setReporting(true);
+    try {
+      const report = await api.report();
+      const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      const timestamp = new Date().toISOString().replaceAll(':', '-').replaceAll('.', '-');
+      anchor.href = url;
+      anchor.download = `colonymind-performance-step-${state.stepCount}-${timestamp}.json`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      setNotice('JSON performance report downloaded with learning and audit evidence.');
+    } catch {
+      setNotice('The JSON performance report could not be generated.');
+    } finally {
+      setReporting(false);
+    }
+  }
 
   return <main>
-    <nav><div className="brand"><i>◌</i><span>COLONY<span>MIND</span></span></div><div className="nav-copy">SELF-ORGANIZING VISION <b>•</b> BUILD WEEK 2026</div><button className="outline" onClick={() => void reset()}>Reset ecosystem</button></nav>
+    <nav><div className="brand"><i>◌</i><span>COLONY<span>MIND</span></span></div><div className="nav-copy">SELF-ORGANIZING VISION <b>•</b> BUILD WEEK 2026</div><div className="nav-actions"><button className="report-button" disabled={reporting} onClick={() => void downloadReport()}>{reporting ? 'Preparing JSON…' : '↓ Download JSON report'}</button><button className="outline" onClick={() => void reset()}>Reset ecosystem</button></div></nav>
     <section className="hero">
       <div><p className="eyebrow">A RESOURCE-AWARE LEARNING LAB</p><h1>Watch a vision architecture <em>organize itself.</em></h1><p className="lede">Unlabeled shapes enter as information. Cells become organisms. Organisms form colonies only when cooperation earns its computational cost.</p><div className="hero-actions"><button className="primary" onClick={() => setRunning((value) => !value)}>{running ? 'Pause learning' : 'Start learning'}</button><button className="secondary" onClick={() => void trainOnce()}>Advance {speed} steps</button><select value={speed} onChange={(event) => setSpeed(Number(event.target.value))} aria-label="Training batch size"><option value={4}>4 steps</option><option value={12}>12 steps</option><option value={36}>36 steps</option><option value={96}>96 steps</option></select></div></div>
       <div className="hero-orbit"><div className="orbit orbit-one" /><div className="orbit orbit-two" /><div className="hero-node">0<br/><small>fixed layers</small></div><span className="shape triangle">△</span><span className="shape circle">○</span><span className="shape square">□</span></div>

@@ -77,6 +77,9 @@ class ColonyMindEngine:
         self.organisms: dict[str, Organism] = {}
         self.colonies: dict[str, Colony] = {}
         self.events: list[dict[str, Any]] = []
+        self.structural_history: list[dict[str, Any]] = []
+        self.event_totals: dict[str, int] = {}
+        self.audit_history: list[dict[str, Any]] = []
         self.loss_history: list[float] = []
         self.current_stimulus: dict[str, Any] | None = None
         self.information_patches: list[dict[str, Any]] = []
@@ -91,14 +94,19 @@ class ColonyMindEngine:
         return f"{prefix}-{self._ids[kind]:03d}"
 
     def _event(self, kind: str, entity_id: str, reasons: list[str], metrics: dict[str, float]) -> None:
-        self.events.append({
+        event = {
             "step": self.step_count,
             "kind": kind,
             "entityId": entity_id,
             "reasons": reasons,
             "metrics": {key: round(value, 5) for key, value in metrics.items()},
-        })
+        }
+        self.events.append(event)
         self.events = self.events[-24:]
+        self.event_totals[kind] = self.event_totals.get(kind, 0) + 1
+        if kind != "SESSION_STARTED":
+            self.structural_history.append(event)
+            self.structural_history = self.structural_history[-256:]
 
     @staticmethod
     def _inside_shape(shape: str, x: float, y: float) -> bool:
@@ -692,7 +700,7 @@ class ColonyMindEngine:
         )
         associated_label = community["dominantHiddenLabel"] if community else "unmapped"
         after = self.state_hash()
-        return {
+        result = {
             "modelModified": before != after,
             "stateHashBefore": before,
             "stateHashAfter": after,
@@ -715,6 +723,20 @@ class ColonyMindEngine:
             "agreement": selected is not None and associated_label == auditor_label,
             "note": "The geometric auditor owns all labels; the ecosystem and its live state remain unchanged.",
         }
+        audit_id = f"audit-{len(self.audit_history) + 1:03d}"
+        result["auditId"] = audit_id
+        self.audit_history.append({
+            "auditId": audit_id,
+            "recordedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "step": self.step_count,
+            "stateHash": after,
+            "modelModified": result["modelModified"],
+            "ecosystemResponse": result["ecosystemResponse"],
+            "externalAuditor": result["externalAuditor"],
+            "agreement": result["agreement"],
+        })
+        self.audit_history = self.audit_history[-100:]
+        return result
 
     def ablate(self, organism_id: str) -> dict[str, Any]:
         if organism_id not in self.organisms:
@@ -758,14 +780,153 @@ class ColonyMindEngine:
         }
 
     def report(self) -> dict[str, Any]:
+        state = self.state()
+        loss_series = [round(value, 6) for value in self.loss_history]
+        comparison_window = min(20, len(loss_series) // 2)
+        loss_change = 0.0
+        if comparison_window:
+            loss_change = float(
+                np.mean(loss_series[-comparison_window:])
+                - np.mean(loss_series[:comparison_window])
+            )
+
+        active_cells = list(self.cells.values())
+        active_organisms = list(self.organisms.values())
+        active_colonies = list(self.colonies.values())
+        cells_created = self.event_totals.get("CELL_BIRTH", 0)
+        organisms_created = self.event_totals.get("ORGANISM_BIRTH", 0)
+        organisms_archived = self.event_totals.get("ORGANISM_ARCHIVED", 0)
+        colonies_formed = self.event_totals.get("COLONY_FORMED", 0)
+        colonies_dissolved = self.event_totals.get("COLONY_DISSOLVED", 0)
+        agreement_count = sum(int(audit["agreement"]) for audit in self.audit_history)
+        agreement_rate = agreement_count / len(self.audit_history) if self.audit_history else None
+        labels: dict[str, int] = {shape: 0 for shape in SHAPES}
+        for audit in self.audit_history:
+            label = audit["externalAuditor"]["drawnLabel"]
+            labels[label] = labels.get(label, 0) + 1
+
+        hidden_evaluation = self.evaluate_hidden() if active_organisms else {
+            "modelModified": False,
+            "sampleCount": 0,
+            "purity": 0.0,
+            "communities": [],
+            "note": "Train the ecosystem before running hidden evaluation.",
+        }
+        recommendations: list[dict[str, str]] = []
+        if not self.audit_history:
+            recommendations.append({
+                "priority": "high",
+                "evidence": "No Draw & Audit trials have been recorded.",
+                "action": "Probe every shape at several rotations before comparing architectures.",
+            })
+        elif agreement_rate is not None and agreement_rate < 0.70:
+            recommendations.append({
+                "priority": "high",
+                "evidence": f"Draw & Audit agreement is {agreement_rate:.1%}.",
+                "action": "Increase training diversity and inspect which organism communities absorb conflicting shapes.",
+            })
+        if hidden_evaluation["purity"] < 0.75 and active_organisms:
+            recommendations.append({
+                "priority": "high",
+                "evidence": f"Hidden-label community purity is {hidden_evaluation['purity']:.1%}.",
+                "action": "Tune novelty and structural-review thresholds to encourage cleaner specialization.",
+            })
+        if loss_change > 0.005:
+            recommendations.append({
+                "priority": "medium",
+                "evidence": f"Recent loss increased by {loss_change:.5f} across comparison windows.",
+                "action": "Reduce prototype learning rate or add a replay buffer for previously learned visual regimes.",
+            })
+        if active_organisms and len(active_cells) / len(active_organisms) >= 7.0:
+            recommendations.append({
+                "priority": "medium",
+                "evidence": "Mean cells per organism is near the current capacity limit.",
+                "action": "Compare cell splitting against organism birth using multi-seed resource-score ablations.",
+            })
+        if len(active_organisms) >= 2 and not active_colonies:
+            recommendations.append({
+                "priority": "medium",
+                "evidence": "Multiple organisms exist without a persistent colony.",
+                "action": "Inspect diversity and synergy thresholds to determine whether cooperation is being undervalued.",
+            })
+        if not recommendations:
+            recommendations.append({
+                "priority": "low",
+                "evidence": "No current heuristic warning crossed its threshold.",
+                "action": "Repeat the benchmark across multiple seeds and compare report files before changing the architecture.",
+            })
+
         return {
-            "schema": "colonymind.report.v1",
+            "schema": "colonymind.performance-report.v2",
             "generatedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "simulation": {"seed": self.seed, "stepCount": self.step_count, "stateHash": self.state_hash(), "labelsUsedForTraining": False},
-            "state": self.state(),
+            "simulation": {
+                "seed": self.seed,
+                "stepCount": self.step_count,
+                "stateHash": self.state_hash(),
+                "retinaSide": self.retina_side,
+                "labelsUsedForTraining": False,
+            },
+            "performance": {
+                "learning": {
+                    "currentLoss": state["metrics"]["loss"],
+                    "meanRecentLoss": state["metrics"]["meanLoss"],
+                    "lossWindowChange": round(loss_change, 6),
+                    "recentLossSeries": loss_series,
+                    "resourceScore": state["metrics"]["resourceScore"],
+                    "activeSynapsesProxy": state["metrics"]["activeSynapsesProxy"],
+                    "memoryBytesProxy": state["metrics"]["memoryBytesProxy"],
+                },
+                "cells": {
+                    "active": len(active_cells),
+                    "created": cells_created,
+                    "archivedWithOrganisms": max(0, cells_created - len(active_cells)),
+                    "meanEnergy": round(float(np.mean([cell.energy for cell in active_cells])), 5) if active_cells else 0.0,
+                    "meanUtility": round(float(np.mean([cell.utility for cell in active_cells])), 6) if active_cells else 0.0,
+                    "meanActivation": round(float(np.mean([cell.activation for cell in active_cells])), 6) if active_cells else 0.0,
+                    "meanRedundancy": round(float(np.mean([cell.redundancy for cell in active_cells])), 6) if active_cells else 0.0,
+                    "prototypeUpdateOperations": sum(cell.age_steps for cell in active_cells),
+                    "byOrganism": {organism.id: len(organism.cells) for organism in active_organisms},
+                },
+                "population": {
+                    "activeOrganisms": len(active_organisms),
+                    "organismsCreated": organisms_created,
+                    "organismsArchived": organisms_archived,
+                    "meanEnergy": round(float(np.mean([organism.energy for organism in active_organisms])), 5) if active_organisms else 0.0,
+                    "meanUtility": round(float(np.mean([organism.utility for organism in active_organisms])), 6) if active_organisms else 0.0,
+                    "lineages": len({organism.lineage for organism in active_organisms}),
+                },
+                "colonies": {
+                    "active": len(active_colonies),
+                    "formed": colonies_formed,
+                    "dissolved": colonies_dissolved,
+                    "meanSynergy": round(float(np.mean([colony.synergy for colony in active_colonies])), 6) if active_colonies else 0.0,
+                    "meanMembers": round(float(np.mean([len(colony.member_ids) for colony in active_colonies])), 3) if active_colonies else 0.0,
+                    "details": [asdict(colony) for colony in active_colonies],
+                },
+                "structuralAdaptations": {
+                    "definition": "Mutation metrics represent structural adaptation events, not a genetic mutation operator.",
+                    "total": sum(count for kind, count in self.event_totals.items() if kind != "SESSION_STARTED"),
+                    "prototypeUpdateOperations": sum(cell.age_steps for cell in active_cells),
+                    "byType": {kind: count for kind, count in sorted(self.event_totals.items()) if kind != "SESSION_STARTED"},
+                    "history": self.structural_history,
+                },
+                "drawAndAudit": {
+                    "trials": len(self.audit_history),
+                    "agreements": agreement_count,
+                    "disagreements": len(self.audit_history) - agreement_count,
+                    "agreementRate": round(agreement_rate, 4) if agreement_rate is not None else None,
+                    "auditorLabels": labels,
+                    "results": self.audit_history,
+                },
+                "hiddenEvaluation": hidden_evaluation,
+            },
+            "recommendations": recommendations,
+            "stateSnapshot": state,
             "limitations": [
                 "The resource score is a compute proxy, not measured physical energy in watts.",
                 "Basic shapes are a controlled initial benchmark, not a camera-vision result.",
-                "The current hidden evaluation reports purity only; standard NMI and ARI are planned for the benchmark phase.",
+                "Structural mutations are adaptation events; the current engine has no genetic mutation operator.",
+                "Recommendations are deterministic heuristics for experimentation, not proof of causal improvement.",
+                "The current hidden evaluation reports purity only; standard NMI and ARI remain planned.",
             ],
         }

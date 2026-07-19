@@ -20,6 +20,16 @@ and square labels, labels the drawing, maps the responding organism through
 held-out samples, and reports agreement. Before/after hashes make this read-only
 claim directly auditable in the interface.
 
+## Performance report
+
+Each browser session can download a versioned JSON report containing recent
+loss values and resource proxies; aggregate and per-organism cell metrics;
+organism population and lineage counts; colony formation, dissolution, and
+synergy; structural adaptation totals and history; hidden evaluation; and all
+Draw & Audit results recorded since the last reset. The report explicitly calls
+these events structural adaptations rather than genetic mutations and adds
+evidence-linked heuristic recommendations for the next experiment.
+
 ## Structure
 
 - Cells are adaptive feature prototypes.

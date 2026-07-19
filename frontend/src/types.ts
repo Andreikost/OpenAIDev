@@ -2,7 +2,7 @@ export type EventItem = { step: number; kind: string; entityId: string; reasons:
 export type Cell = { id: string; organism_id: string; energy: number; utility: number; activation: number; age_steps: number; redundancy: number };
 export type Organism = { id: string; lineage: string; color: string; cellIds: string[]; energy: number; utility: number; contribution: number; colonyId: string | null; ageSteps: number; x: number; y: number; heading: number; distanceTravelled: number };
 export type Colony = { id: string; member_ids: string[]; core_members: string[]; energy: number; state: string; formed_step: number; synergy: number };
-export type RetinalStimulus = { id: string; rotation: number; scale: number; noise: number; occlusion: number; offsetX: number; offsetY: number; retinaSide: number; retinaPixels: number[] };
+export type RetinalStimulus = { id: string; rotation: number; scale: number; noise: number; occlusion: number; offsetX: number; offsetY: number; retinaSide: number; retinaPixels: number[]; renderMode: 'filled' | 'outline' };
 export type InformationPatch = { id: string; x: number; y: number; amount: number; novelty: number; createdStep: number; consumedBy: string | null };
 export type State = {
   seed: number;

@@ -7,9 +7,7 @@
 .retina-card > div > span { margin-top: 5px; color: #9fb4c8; font-size: 11px; line-height: 1.55; }
 .retina { position: relative; width: min(100%, 220px); aspect-ratio: 1; margin: 0 auto; padding: 8px; border: 1px solid #64d9ff66; border-radius: 50% 50% 47% 47%; background: #020810; box-shadow: inset 0 0 28px #4ccff522, 0 0 24px #3ed9ff1c; overflow: hidden; }
 .retina::after { content: ''; position: absolute; inset: 8px; border-radius: 50%; pointer-events: none; background: radial-gradient(circle, transparent 44%, #02081066 72%, #020810ee 100%); }
-.retina svg { width: 100%; height: 100%; border-radius: 50%; overflow: hidden; image-rendering: pixelated; }
-.retina svg path { fill: none; stroke: #7ce7ff14; stroke-width: .025; }
-.retina-background { fill: #02070c; }
+.retina canvas { width: 100%; height: 100%; display: block; border-radius: 50%; image-rendering: pixelated; }
 .retina.empty { opacity: .35; }
 .retina > span { position: absolute; z-index: 1; left: 50%; bottom: 11px; transform: translateX(-50%); color: #9cecff; font: 8px 'DM Mono', monospace; letter-spacing: 1px; white-space: nowrap; text-shadow: 0 0 8px #46dfff; }
 .ecosystem-canvas { width: 100%; height: 400px; display: block; margin-top: 8px; border-radius: 11px; border: 1px solid #ffffff12; cursor: crosshair; background: #030b13; }

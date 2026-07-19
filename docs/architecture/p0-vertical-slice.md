@@ -6,9 +6,9 @@ of camera intelligence or physical-energy measurement.
 ## Learning boundary
 
 The shape generator uses a private semantic name only to rasterize an image on a
-32 × 32 intensity retina with 2 × 2 subpixel edge sampling. Each presentation independently varies scale,
+64 × 64 intensity retina with 2 × 2 subpixel edge sampling. Presentations alternate between filled and outline-only stimuli and independently vary scale,
 rotation, position, sensor noise, and occlusion. The learning engine receives
-only the 1,024 retinal intensities and cannot access labels or symbolic shape
+only the 4,096 retinal intensities and cannot access labels or symbolic shape
 identifiers. The evaluator independently maps held-out retinal images to private
 labels, hashes the model before and after evaluation, and reports whether it
 changed the model.

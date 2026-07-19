@@ -47,7 +47,8 @@ Open `http://127.0.0.1:5173`. Docker Compose serves the same application on
 
 P0 includes the geometry generator, label-free feature learning, dynamic
 organisms, colony formation, resource proxies, deterministic state hashes,
-hidden-label read-only evaluation, and read-only ablation. The planned GPT-5.6
+hidden-label read-only evaluation, a draw-your-own retinal probe with an external
+geometric auditor, and read-only ablation. The planned GPT-5.6
 curriculum/explanation layer and camera input are deliberately not represented
 as implemented features yet.
 

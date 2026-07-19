@@ -1,4 +1,4 @@
-import type { Ablation, Evaluation, State } from './types';
+import type { Ablation, DrawingAudit, Evaluation, State } from './types';
 
 const SESSION_STORAGE_KEY = 'colonymind-session-v1';
 const existingSession = window.localStorage.getItem(SESSION_STORAGE_KEY);
@@ -19,5 +19,6 @@ export const api = {
   step: (steps: number) => request<State>('/api/step', { method: 'POST', body: JSON.stringify({ steps }) }),
   reset: (seed: number) => request<State>('/api/reset', { method: 'POST', body: JSON.stringify({ seed }) }),
   evaluate: () => request<Evaluation>('/api/evaluate', { method: 'POST' }),
+  auditDrawing: (pixels: number[]) => request<DrawingAudit>('/api/audit-drawing', { method: 'POST', body: JSON.stringify({ pixels }) }),
   ablate: (organismId: string) => request<Ablation>('/api/ablate', { method: 'POST', body: JSON.stringify({ organism_id: organismId }) }),
 };

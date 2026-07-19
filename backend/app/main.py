@@ -23,6 +23,13 @@ class AblationRequest(BaseModel):
     organism_id: str
 
 
+PixelIntensity = Annotated[float, Field(ge=0.0, le=1.0, allow_inf_nan=False)]
+
+
+class DrawingAuditRequest(BaseModel):
+    pixels: list[PixelIntensity] = Field(min_length=4096, max_length=4096)
+
+
 app = FastAPI(title="ColonyMind API", version="0.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 lock = threading.RLock()
@@ -76,6 +83,15 @@ def reset(payload: ResetRequest, session_id: SessionId) -> dict[str, Any]:
 def evaluate(session_id: SessionId) -> dict[str, Any]:
     with lock:
         return engine_for(session_id).evaluate_hidden()
+
+
+@app.post("/api/audit-drawing")
+def audit_drawing(payload: DrawingAuditRequest, session_id: SessionId) -> dict[str, Any]:
+    with lock:
+        try:
+            return engine_for(session_id).audit_drawing(payload.pixels)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
 
 
 @app.post("/api/ablate")

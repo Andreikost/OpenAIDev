@@ -2,6 +2,7 @@ from app.core import ColonyMindEngine
 import random
 
 import numpy as np
+import pytest
 
 
 def test_engine_starts_without_learned_structure() -> None:
@@ -98,3 +99,42 @@ def test_information_habitat_spreads_different_retinal_inputs() -> None:
 
     assert max(xs) - min(xs) > 15.0
     assert max(ys) - min(ys) > 15.0
+
+
+def test_external_auditor_labels_normalized_outline_drawings() -> None:
+    engine = ColonyMindEngine(seed=42)
+    for shape, rotation in (("circle", 0.0), ("square", 0.37), ("triangle", 0.37)):
+        drawing = engine._retina_for(
+            shape,
+            rotation,
+            0.72,
+            0.0,
+            0.0,
+            0.04,
+            -0.03,
+            random.Random(1),
+            "outline",
+        )
+        result = engine.audit_drawing(drawing.tolist())
+
+        assert result["externalAuditor"]["drawnLabel"] == shape
+        assert result["externalAuditor"]["confidence"] > 0.5
+
+
+def test_drawing_audit_probes_the_learner_without_modifying_it() -> None:
+    engine = ColonyMindEngine(seed=20260718)
+    engine.step(120)
+    drawing = engine._retina_for("triangle", 0.2, 0.72, 0.0, 0.0, 0.0, 0.0, random.Random(3), "outline")
+    before = engine.state_hash()
+    result = engine.audit_drawing(drawing.tolist())
+
+    assert result["ecosystemResponse"]["organismId"] is not None
+    assert result["modelModified"] is False
+    assert result["stateHashBefore"] == before == result["stateHashAfter"]
+
+
+def test_drawing_audit_rejects_an_empty_retina() -> None:
+    engine = ColonyMindEngine(seed=42)
+
+    with pytest.raises(ValueError, match="complete shape"):
+        engine.audit_drawing([0.0] * engine.vector_size)

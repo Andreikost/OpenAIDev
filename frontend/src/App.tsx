@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from './api';
-import type { Ablation, Evaluation, Organism, RetinalStimulus, State } from './types';
+import type { Ablation, DrawingAudit, Evaluation, Organism, RetinalStimulus, State } from './types';
 
 const INITIAL_STATE: State = {
   seed: 20260718, stepCount: 0, stateHash: 'awaiting-api', currentStimulus: null,
@@ -122,6 +122,109 @@ function LivingArchitecture({ state, selectedId, onSelect }: { state: State; sel
   return <canvas ref={canvasRef} className="ecosystem-canvas" onClick={selectAt} aria-label="Living self-organizing learning habitat" />;
 }
 
+function DrawingAuditLab({ hasLearner, onOrganism }: { hasLearner: boolean; onOrganism: (id: string) => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const drawing = useRef(false);
+  const [hasInk, setHasInk] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<DrawingAudit | null>(null);
+  const [error, setError] = useState('');
+
+  function clearDrawing() {
+    const context = canvasRef.current?.getContext('2d');
+    if (!context) return;
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    context.fillStyle = '#020810';
+    context.fillRect(0, 0, 64, 64);
+    context.strokeStyle = '#f2fbff';
+    context.lineWidth = 3.2;
+    context.lineCap = 'round';
+    context.lineJoin = 'round';
+    setHasInk(false);
+    setResult(null);
+    setError('');
+  }
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.width = 64;
+    canvas.height = 64;
+    clearDrawing();
+  }, []);
+
+  function point(event: React.PointerEvent<HTMLCanvasElement>) {
+    const box = event.currentTarget.getBoundingClientRect();
+    return { x: (event.clientX - box.left) / box.width * 64, y: (event.clientY - box.top) / box.height * 64 };
+  }
+
+  function beginStroke(event: React.PointerEvent<HTMLCanvasElement>) {
+    const context = canvasRef.current?.getContext('2d');
+    if (!context) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const start = point(event);
+    drawing.current = true;
+    context.beginPath();
+    context.moveTo(start.x, start.y);
+    setResult(null);
+    setError('');
+  }
+
+  function continueStroke(event: React.PointerEvent<HTMLCanvasElement>) {
+    if (!drawing.current) return;
+    const context = canvasRef.current?.getContext('2d');
+    if (!context) return;
+    const next = point(event);
+    context.lineTo(next.x, next.y);
+    context.stroke();
+    setHasInk(true);
+  }
+
+  function endStroke() {
+    drawing.current = false;
+  }
+
+  async function auditDrawing() {
+    const context = canvasRef.current?.getContext('2d');
+    if (!context) return;
+    const data = context.getImageData(0, 0, 64, 64).data;
+    const pixels = Array.from({ length: 64 * 64 }, (_value, index) => data[index * 4] / 255);
+    setBusy(true);
+    setError('');
+    try {
+      const audit = await api.auditDrawing(pixels);
+      setResult(audit);
+      if (audit.ecosystemResponse.organismId) onOrganism(audit.ecosystemResponse.organismId);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'The drawing could not be audited.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const labelGlyph: Record<string, string> = { circle: '○', triangle: '△', square: '□', unmapped: '?' };
+  return <section className="panel draw-lab">
+    <div className="panel-header"><div><p className="panel-title">Draw & audit lab</p><span>Probe the learned architecture with your own 64 × 64 retinal input.</span></div><span className="read-only-badge">READ ONLY</span></div>
+    <div className="draw-lab-grid">
+      <article className="draw-stage">
+        <div className="draw-canvas-shell"><canvas ref={canvasRef} className="draw-canvas" aria-label="Draw a circle, triangle, or square" onPointerDown={beginStroke} onPointerMove={continueStroke} onPointerUp={endStroke} onPointerCancel={endStroke} /></div>
+        <p>Draw one closed shape: circle, triangle, or square.</p>
+        <div className="draw-actions"><button className="primary" disabled={!hasInk || busy} onClick={() => void auditDrawing()}>{busy ? 'Auditing…' : 'Ask learner + auditor'}</button><button className="secondary" onClick={clearDrawing}>Clear</button></div>
+        {!hasLearner && <small>Train the ecosystem first to compare its response; the external auditor can still inspect the drawing.</small>}
+        {error && <small className="draw-error">{error}</small>}
+      </article>
+      <article className="probe-result learner-result">
+        <span className="result-kicker">ECOSYSTEM RESPONSE · NO LABEL ACCESS</span>
+        {result ? <><strong>{result.ecosystemResponse.organismId ?? 'No organism yet'}</strong><dl><div><dt>Relative response</dt><dd>{Math.round(result.ecosystemResponse.confidence * 100)}%</dd></div><div><dt>Reconstruction error</dt><dd>{result.ecosystemResponse.reconstructionError?.toFixed(4) ?? '—'}</dd></div><div><dt>Colony</dt><dd>{result.ecosystemResponse.colonyId ?? 'independent'}</dd></div></dl></> : <p className="empty-copy">The closest learned organism will respond here. It sees pixels, never the shape name.</p>}
+      </article>
+      <article className={`probe-result auditor-result ${result?.agreement ? 'agreement' : ''}`}>
+        <span className="result-kicker">EXTERNAL GEOMETRIC AUDITOR</span>
+        {result ? <><div className="auditor-label"><i>{labelGlyph[result.externalAuditor.drawnLabel] ?? '?'}</i><div><strong>{result.externalAuditor.drawnLabel}</strong><span>{Math.round(result.externalAuditor.confidence * 100)}% relative confidence</span></div></div><div className="score-bars">{Object.entries(result.externalAuditor.labelScores).map(([label, score]) => <div key={label}><span>{label}</span><i><b style={{ width: `${Math.round(score * 100)}%` }}/></i><em>{Math.round(score * 100)}%</em></div>)}</div><div className={`agreement-box ${result.agreement ? 'yes' : 'no'}`}><b>{result.agreement ? 'AGREEMENT' : 'DISAGREEMENT'}</b><span>Auditor maps {result.ecosystemResponse.organismId ?? 'no organism'} to <strong>{result.externalAuditor.organismAssociatedLabel}</strong>.</span></div><small>{result.modelModified ? 'Warning: model changed' : `State preserved · ${result.stateHashAfter}`}</small></> : <p className="empty-copy">This independent observer owns the labels and checks the learner without changing it.</p>}
+      </article>
+    </div>
+  </section>;
+}
+
 export default function App() {
   const [state, setState] = useState<State>(INITIAL_STATE);
   const [running, setRunning] = useState(false);
@@ -178,6 +281,7 @@ export default function App() {
       <section className="panel ecosystem"><div className="panel-header"><div><p className="panel-title">Living architecture</p><span>Organisms forage retinal information; colonies add cohesion only when cooperation pays.</span></div><span className="seed">seed {state.seed}</span></div><LivingArchitecture state={state} selectedId={selected?.id ?? null} onSelect={setSelectedId}/><div className="legend"><span><i className="food-dot"/>information food</span><span><i className="dot cyan"/>cell</span><span><i className="dot violet"/>organism</span><span><i className="ring"/>persistent colony</span></div></section>
       <aside className="panel inspector"><p className="panel-title">Selected organism</p>{selected ? <><div className="organism-heading"><i style={{ background: selected.color }}/><div><strong>{selected.id}</strong><span>lineage {selected.lineage}</span></div></div><dl><div><dt>Cells</dt><dd>{cellsByOrganism[selected.id] ?? 0}</dd></div><div><dt>Energy</dt><dd>{Math.round(selected.energy * 100)}%</dd></div><div><dt>Marginal contribution</dt><dd>{selected.contribution.toFixed(4)}</dd></div><div><dt>Colony</dt><dd>{selected.colonyId ?? 'independent'}</dd></div></dl><button className="secondary full" onClick={() => void runAblation(selected)}>Run read-only ablation</button>{ablation?.organismId === selected.id && <div className="ablation"><b>Evidence</b><span>Loss changes by {ablation.delta.toFixed(4)} when {selected.id} is removed.</span><small>{ablation.modelModified ? 'Warning: state changed' : 'Live state preserved'}</small></div>}</> : <p className="empty-copy">An organism inspector will appear after the first unlabeled stimulus creates a pioneer cell.</p>}</aside>
     </section>
+    <DrawingAuditLab hasLearner={state.organisms.length > 0} onOrganism={setSelectedId}/>
     <section className="lower-grid"><article className="panel evidence"><div className="panel-header"><div><p className="panel-title">Hidden evaluation</p><span>Labels remain outside the learning loop.</span></div><button className="secondary" onClick={() => void revealEvaluation()} disabled={!state.organisms.length}>Reveal evaluation</button></div>{evaluation ? <div className="evaluation"><strong>{Math.round(evaluation.purity * 100)}% purity</strong><p>{evaluation.note}</p>{evaluation.communities.map((community) => <span key={community.organismId}>{community.organismId} → {community.dominantHiddenLabel} · {community.samples} held-out samples</span>)}</div> : <p className="empty-copy">Train first, then reveal the evaluator's read-only community mapping.</p>}</article>
       <article className="panel events"><p className="panel-title">Evidence log</p><div className="event-list">{state.events.length ? state.events.map((event, index) => <div key={`${event.step}-${index}`}><b>{event.kind.replaceAll('_', ' ')}</b><span>step {event.step} · {event.reasons.join(' · ').replaceAll('_', ' ').toLowerCase()}</span></div>) : <p className="empty-copy">The log records why each structure exists.</p>}</div></article>
     </section>

@@ -18,3 +18,14 @@ export type State = {
 };
 export type Evaluation = { modelModified: boolean; sampleCount: number; purity: number; communities: { organismId: string; dominantHiddenLabel: string; samples: number }[]; note: string };
 export type Ablation = { organismId: string; modelModified: boolean; baselineLoss: number; ablatedLoss: number; delta: number; note: string };
+export type DrawingAudit = {
+  modelModified: boolean;
+  stateHashBefore: string;
+  stateHashAfter: string;
+  retinaSide: number;
+  normalizedPixels: number[];
+  ecosystemResponse: { organismId: string | null; colonyId: string | null; confidence: number; reconstructionError: number | null };
+  externalAuditor: { drawnLabel: string; confidence: number; geometricMatch: number; labelScores: Record<string, number>; organismAssociatedLabel: string; mappingSupport: number };
+  agreement: boolean;
+  note: string;
+};

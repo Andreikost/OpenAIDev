@@ -13,6 +13,13 @@ identifiers. The evaluator independently maps held-out retinal images to private
 labels, hashes the model before and after evaluation, and reports whether it
 changed the model.
 
+The interactive drawing probe follows the same boundary. A visitor's 64 × 64
+drawing is normalized and compared with the learned organism prototypes without
+updating them. A separate geometric template auditor owns the circle, triangle,
+and square labels, labels the drawing, maps the responding organism through
+held-out samples, and reports agreement. Before/after hashes make this read-only
+claim directly auditable in the interface.
+
 ## Structure
 
 - Cells are adaptive feature prototypes.

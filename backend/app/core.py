@@ -160,11 +160,15 @@ class ColonyMindEngine:
                     coverage += outer
 
         signal = 0.025 + (coverage / 4.0) * 0.915
-        noise_values = np.fromiter(
-            (source_rng.uniform(-noise, noise) for _ in range(self.vector_size)),
-            dtype=np.float64,
-            count=self.vector_size,
-        ).reshape((self.retina_side, self.retina_side))
+        noise_values = (
+            np.fromiter(
+                (source_rng.uniform(-noise, noise) for _ in range(self.vector_size)),
+                dtype=np.float64,
+                count=self.vector_size,
+            ).reshape((self.retina_side, self.retina_side))
+            if noise > 0.0
+            else np.zeros((self.retina_side, self.retina_side), dtype=np.float64)
+        )
         pixels = signal + noise_values
 
         if occlusion > 0:
@@ -577,6 +581,139 @@ class ColonyMindEngine:
                 for organism_id, labels in by_organism.items()
             ],
             "note": "Hidden labels were used only by this read-only evaluator.",
+        }
+
+    @staticmethod
+    def _dilate_mask(mask: np.ndarray, radius: int = 2) -> np.ndarray:
+        padded = np.pad(mask, radius, mode="constant", constant_values=False)
+        expanded = np.zeros_like(mask, dtype=bool)
+        height, width = mask.shape
+        for offset_y in range(radius * 2 + 1):
+            for offset_x in range(radius * 2 + 1):
+                expanded |= padded[offset_y : offset_y + height, offset_x : offset_x + width]
+        return expanded
+
+    def _normalize_drawing(self, pixels: list[float]) -> np.ndarray:
+        image = np.clip(np.asarray(pixels, dtype=np.float64), 0.0, 1.0).reshape(
+            (self.retina_side, self.retina_side)
+        )
+        active = image > 0.08
+        if int(np.sum(active)) < 12:
+            raise ValueError("Draw a complete shape before asking the auditor.")
+
+        rows, columns = np.where(active)
+        crop = image[rows.min() : rows.max() + 1, columns.min() : columns.max() + 1]
+        crop_height, crop_width = crop.shape
+        target_extent = 44
+        scale = min(target_extent / crop_height, target_extent / crop_width)
+        resized_height = max(1, round(crop_height * scale))
+        resized_width = max(1, round(crop_width * scale))
+        source_rows = np.clip(
+            np.round(np.linspace(0, crop_height - 1, resized_height)).astype(int),
+            0,
+            crop_height - 1,
+        )
+        source_columns = np.clip(
+            np.round(np.linspace(0, crop_width - 1, resized_width)).astype(int),
+            0,
+            crop_width - 1,
+        )
+        resized = crop[np.ix_(source_rows, source_columns)]
+        normalized = np.zeros((self.retina_side, self.retina_side), dtype=np.float64)
+        start_row = (self.retina_side - resized_height) // 2
+        start_column = (self.retina_side - resized_width) // 2
+        normalized[
+            start_row : start_row + resized_height,
+            start_column : start_column + resized_width,
+        ] = resized
+        return np.clip(0.025 + normalized.reshape(self.vector_size) * 0.915, 0.0, 1.0)
+
+    def _audit_drawing_geometry(self, vector: np.ndarray) -> tuple[str, float, float, dict[str, float]]:
+        drawing_mask = vector.reshape((self.retina_side, self.retina_side)) > 0.24
+        drawing_tolerance = self._dilate_mask(drawing_mask)
+        rotations = {
+            "circle": (0.0,),
+            "square": tuple(index * (math.pi / 2.0) / 12.0 for index in range(12)),
+            "triangle": tuple(index * (math.pi * 2.0) / 24.0 for index in range(24)),
+        }
+        scores: dict[str, float] = {}
+        for shape in SHAPES:
+            best_score = 0.0
+            for scale in (0.74, 0.82):
+                for rotation in rotations[shape]:
+                    template = self._retina_for(
+                        shape,
+                        rotation,
+                        scale,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        random.Random(0),
+                        "outline",
+                    ).reshape((self.retina_side, self.retina_side)) > 0.24
+                    template_tolerance = self._dilate_mask(template)
+                    drawn_near_template = float(np.mean(template_tolerance[drawing_mask]))
+                    template_near_drawing = float(np.mean(drawing_tolerance[template]))
+                    score = math.sqrt(max(0.0, drawn_near_template * template_near_drawing))
+                    best_score = max(best_score, score)
+            scores[shape] = best_score
+
+        label = max(scores, key=scores.get)
+        peak = scores[label]
+        weights = {shape: math.exp((score - peak) * 9.0) for shape, score in scores.items()}
+        confidence = weights[label] / sum(weights.values())
+        return label, confidence, peak, scores
+
+    def audit_drawing(self, pixels: list[float]) -> dict[str, Any]:
+        """Read-only learner probe plus an explicitly external geometric auditor."""
+        before = self.state_hash()
+        vector = self._normalize_drawing(pixels)
+        auditor_label, auditor_confidence, geometric_match, label_scores = self._audit_drawing_geometry(vector)
+
+        selected: Organism | None = None
+        learner_confidence = 0.0
+        reconstruction_error: float | None = None
+        if self.organisms:
+            distances = [(organism, self._distance(vector, organism.specialization)) for organism in self.organisms.values()]
+            distances.sort(key=lambda item: item[1])
+            selected, reconstruction_error = distances[0]
+            proximity = [math.exp(-distance / 0.06) for _organism, distance in distances]
+            learner_confidence = proximity[0] / max(1e-12, sum(proximity))
+
+        evaluation = self.evaluate_hidden()
+        community = next(
+            (
+                item
+                for item in evaluation["communities"]
+                if selected is not None and item["organismId"] == selected.id
+            ),
+            None,
+        )
+        associated_label = community["dominantHiddenLabel"] if community else "unmapped"
+        after = self.state_hash()
+        return {
+            "modelModified": before != after,
+            "stateHashBefore": before,
+            "stateHashAfter": after,
+            "retinaSide": self.retina_side,
+            "normalizedPixels": vector.round(3).tolist(),
+            "ecosystemResponse": {
+                "organismId": selected.id if selected else None,
+                "colonyId": selected.colony_id if selected else None,
+                "confidence": round(learner_confidence, 3),
+                "reconstructionError": round(reconstruction_error, 5) if reconstruction_error is not None else None,
+            },
+            "externalAuditor": {
+                "drawnLabel": auditor_label,
+                "confidence": round(auditor_confidence, 3),
+                "geometricMatch": round(geometric_match, 3),
+                "labelScores": {shape: round(score, 3) for shape, score in label_scores.items()},
+                "organismAssociatedLabel": associated_label,
+                "mappingSupport": community["samples"] if community else 0,
+            },
+            "agreement": selected is not None and associated_label == auditor_label,
+            "note": "The geometric auditor owns all labels; the ecosystem and its live state remain unchanged.",
         }
 
     def ablate(self, organism_id: str) -> dict[str, Any]:

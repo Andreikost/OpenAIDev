@@ -138,3 +138,24 @@ def test_drawing_audit_rejects_an_empty_retina() -> None:
 
     with pytest.raises(ValueError, match="complete shape"):
         engine.audit_drawing([0.0] * engine.vector_size)
+
+
+def test_performance_report_contains_structure_and_drawing_evidence() -> None:
+    engine = ColonyMindEngine(seed=20260718)
+    engine.step(48)
+    drawing = engine._retina_for("square", 0.2, 0.72, 0.0, 0.0, 0.0, 0.0, random.Random(4), "outline")
+    audit = engine.audit_drawing(drawing.tolist())
+    before = engine.state_hash()
+    report = engine.report()
+
+    assert report["schema"] == "colonymind.performance-report.v2"
+    assert report["simulation"]["stateHash"] == before == engine.state_hash()
+    assert report["performance"]["cells"]["active"] == len(engine.cells)
+    assert report["performance"]["cells"]["prototypeUpdateOperations"] > 0
+    assert report["performance"]["population"]["activeOrganisms"] == len(engine.organisms)
+    assert report["performance"]["colonies"]["active"] == len(engine.colonies)
+    assert report["performance"]["structuralAdaptations"]["byType"]["CELL_BIRTH"] >= 1
+    assert report["performance"]["drawAndAudit"]["trials"] == 1
+    assert report["performance"]["drawAndAudit"]["results"][0]["auditId"] == audit["auditId"]
+    assert report["performance"]["drawAndAudit"]["results"][0]["externalAuditor"]["drawnLabel"] == "square"
+    assert report["recommendations"]

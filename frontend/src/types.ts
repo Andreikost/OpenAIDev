@@ -19,6 +19,7 @@ export type State = {
 export type Evaluation = { modelModified: boolean; sampleCount: number; purity: number; communities: { organismId: string; dominantHiddenLabel: string; samples: number }[]; note: string };
 export type Ablation = { organismId: string; modelModified: boolean; baselineLoss: number; ablatedLoss: number; delta: number; note: string };
 export type DrawingAudit = {
+  auditId: string;
   modelModified: boolean;
   stateHashBefore: string;
   stateHashAfter: string;

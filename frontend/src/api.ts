@@ -21,4 +21,5 @@ export const api = {
   evaluate: () => request<Evaluation>('/api/evaluate', { method: 'POST' }),
   auditDrawing: (pixels: number[]) => request<DrawingAudit>('/api/audit-drawing', { method: 'POST', body: JSON.stringify({ pixels }) }),
   ablate: (organismId: string) => request<Ablation>('/api/ablate', { method: 'POST', body: JSON.stringify({ organism_id: organismId }) }),
+  report: () => request<Record<string, unknown>>('/api/report'),
 };

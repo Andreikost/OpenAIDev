@@ -63,7 +63,7 @@ class ColonyMindEngine:
     and never accesses labels. A separate evaluator owns the shape-name mapping.
     """
 
-    retina_side = 32
+    retina_side = 64
     vector_size = retina_side * retina_side
 
     def __init__(self, seed: int = 20260718) -> None:
@@ -120,26 +120,52 @@ class ColonyMindEngine:
         offset_x: float,
         offset_y: float,
         rng: random.Random | None = None,
+        render_mode: str = "filled",
     ) -> np.ndarray:
+        if render_mode not in {"filled", "outline"}:
+            raise ValueError(f"Unknown retinal render mode: {render_mode}")
         source_rng = rng or self.rng
         cosine = math.cos(rotation)
         sine = math.sin(rotation)
-        pixels = np.zeros((self.retina_side, self.retina_side), dtype=np.float64)
+        coverage = np.zeros((self.retina_side, self.retina_side), dtype=np.float64)
         subpixel_offsets = (-0.25, 0.25)
 
-        for row in range(self.retina_side):
-            for column in range(self.retina_side):
-                covered = 0
-                for subpixel_y in subpixel_offsets:
-                    for subpixel_x in subpixel_offsets:
-                        retinal_x = ((column + 0.5 + subpixel_x) / self.retina_side) * 2.0 - 1.0 - offset_x
-                        retinal_y = ((row + 0.5 + subpixel_y) / self.retina_side) * 2.0 - 1.0 - offset_y
-                        local_x = (cosine * retinal_x + sine * retinal_y) / scale
-                        local_y = (-sine * retinal_x + cosine * retinal_y) / scale
-                        covered += int(self._inside_shape(shape, local_x, local_y))
-                coverage = covered / 4.0
-                signal = 0.025 + coverage * 0.915
-                pixels[row, column] = signal + source_rng.uniform(-noise, noise)
+        columns, rows = np.meshgrid(
+            np.arange(self.retina_side, dtype=np.float64),
+            np.arange(self.retina_side, dtype=np.float64),
+        )
+
+        def inside(local_x: np.ndarray, local_y: np.ndarray) -> np.ndarray:
+            if shape == "circle":
+                return local_x * local_x + local_y * local_y <= 0.86
+            if shape == "square":
+                return np.maximum(np.abs(local_x), np.abs(local_y)) <= 0.82
+            if shape == "triangle":
+                return (-0.92 <= local_y) & (local_y <= 0.78) & (np.abs(local_x) <= 0.92 * (local_y + 0.92) / 1.70)
+            raise ValueError(f"Unknown visual generator shape: {shape}")
+
+        for subpixel_y in subpixel_offsets:
+            for subpixel_x in subpixel_offsets:
+                retinal_x = ((columns + 0.5 + subpixel_x) / self.retina_side) * 2.0 - 1.0 - offset_x
+                retinal_y = ((rows + 0.5 + subpixel_y) / self.retina_side) * 2.0 - 1.0 - offset_y
+                local_x = (cosine * retinal_x + sine * retinal_y) / scale
+                local_y = (-sine * retinal_x + cosine * retinal_y) / scale
+                outer = inside(local_x, local_y)
+                if render_mode == "outline":
+                    # A geometrically inset copy produces a scale-consistent contour.
+                    # The learner is still given pixels only; this mode is public metadata,
+                    # not a semantic shape label.
+                    coverage += outer & ~inside(local_x / 0.84, local_y / 0.84)
+                else:
+                    coverage += outer
+
+        signal = 0.025 + (coverage / 4.0) * 0.915
+        noise_values = np.fromiter(
+            (source_rng.uniform(-noise, noise) for _ in range(self.vector_size)),
+            dtype=np.float64,
+            count=self.vector_size,
+        ).reshape((self.retina_side, self.retina_side))
+        pixels = signal + noise_values
 
         if occlusion > 0:
             span = max(1, min(self.retina_side - 1, round(self.retina_side * math.sqrt(occlusion))))
@@ -158,7 +184,17 @@ class ColonyMindEngine:
         offset_limit = max(0.04, (1.0 - scale) * 0.34)
         offset_x = self.rng.uniform(-offset_limit, offset_limit)
         offset_y = self.rng.uniform(-offset_limit, offset_limit)
-        vector = self._retina_for(shape, rotation, scale, noise, occlusion, offset_x, offset_y)
+        render_mode = self.rng.choice(("filled", "outline"))
+        vector = self._retina_for(
+            shape,
+            rotation,
+            scale,
+            noise,
+            occlusion,
+            offset_x,
+            offset_y,
+            render_mode=render_mode,
+        )
         sample_id = self._next_id("sample")
         public = {
             "id": sample_id,
@@ -170,6 +206,7 @@ class ColonyMindEngine:
             "offsetY": round(offset_y, 3),
             "retinaSide": self.retina_side,
             "retinaPixels": vector.round(3).tolist(),
+            "renderMode": render_mode,
         }
         # The private generator label is returned separately and never passed to learning or public state.
         return vector, public, shape
@@ -208,11 +245,13 @@ class ColonyMindEngine:
         """Project retinal input into a deterministic 2-D information habitat."""
         centered = vector - float(np.mean(vector))
         indices = np.arange(self.vector_size, dtype=np.float64) + 1.0
-        norm = float(np.sum(np.abs(centered))) or 1.0
-        projection_x = float(np.sum(centered * np.sin(indices * 0.731)) / norm)
-        projection_y = float(np.sum(centered * np.cos(indices * 1.173)) / norm)
-        x = 50.0 + math.tanh(projection_x * 4.8) * 38.0
-        y = 50.0 + math.tanh(projection_y * 4.8) * 34.0
+        wave_x = np.sin(indices * 0.731)
+        wave_y = np.cos(indices * 1.173)
+        signal_energy = float(np.linalg.norm(centered)) or 1.0
+        projection_x = float(np.dot(centered, wave_x) / (signal_energy * float(np.linalg.norm(wave_x))))
+        projection_y = float(np.dot(centered, wave_y) / (signal_energy * float(np.linalg.norm(wave_y))))
+        x = 50.0 + math.tanh(projection_x * 18.0) * 42.0
+        y = 50.0 + math.tanh(projection_y * 18.0) * 38.0
         return x, y
 
     def _record_information_patch(self, vector: np.ndarray, sample_id: str, novelty: float) -> dict[str, Any]:
@@ -250,8 +289,25 @@ class ColonyMindEngine:
             target_y = float(patch["y"])
             if organism.colony_id in colony_centers and organism.id != winner_id:
                 center_x, center_y = colony_centers[organism.colony_id]
-                target_x = target_x * 0.58 + center_x * 0.42
-                target_y = target_y * 0.58 + center_y * 0.42
+                target_x = target_x * 0.82 + center_x * 0.18
+                target_y = target_y * 0.82 + center_y * 0.18
+
+            # Local exclusion keeps independently useful organisms legible instead
+            # of collapsing into one decorative blob. Colonies provide cohesion,
+            # while this short-range force preserves distinct members.
+            for other_index, other in enumerate(self.organisms.values()):
+                if other.id == organism.id:
+                    continue
+                difference_x = organism.x - other.x
+                difference_y = organism.y - other.y
+                distance = math.hypot(difference_x, difference_y)
+                if distance < 0.001:
+                    angle = (index + other_index + 1) * 2.399
+                    difference_x, difference_y, distance = math.cos(angle), math.sin(angle), 1.0
+                if distance < 9.0:
+                    strength = (9.0 - distance) / 9.0
+                    target_x += difference_x / distance * strength * 18.0
+                    target_y += difference_y / distance * strength * 18.0
             desired = math.atan2(target_y - organism.y, target_x - organism.x)
             steering = 0.16 + min(0.20, activation * 0.18)
             organism.heading += math.atan2(
@@ -264,6 +320,27 @@ class ColonyMindEngine:
             organism.x = min(94.0, max(6.0, organism.x + math.cos(organism.heading) * travel))
             organism.y = min(94.0, max(6.0, organism.y + math.sin(organism.heading) * travel))
             organism.distance_travelled += math.hypot(organism.x - previous_x, organism.y - previous_y)
+
+        # Resolve the remaining overlap after movement. Two small deterministic
+        # relaxation passes keep bodies selectable without freezing their motion.
+        organisms = list(self.organisms.values())
+        for _pass in range(2):
+            for first_index, first in enumerate(organisms):
+                for second_index, second in enumerate(organisms[first_index + 1 :], first_index + 1):
+                    difference_x = first.x - second.x
+                    difference_y = first.y - second.y
+                    distance = math.hypot(difference_x, difference_y)
+                    if distance < 0.001:
+                        angle = (first_index + second_index + 1) * 2.399
+                        difference_x, difference_y, distance = math.cos(angle), math.sin(angle), 1.0
+                    if distance >= 7.2:
+                        continue
+                    correction = (7.2 - distance) * 0.5
+                    direction_x, direction_y = difference_x / distance, difference_y / distance
+                    first.x = min(94.0, max(6.0, first.x + direction_x * correction))
+                    first.y = min(94.0, max(6.0, first.y + direction_y * correction))
+                    second.x = min(94.0, max(6.0, second.x - direction_x * correction))
+                    second.y = min(94.0, max(6.0, second.y - direction_y * correction))
 
     def _organism_response(self, organism: Organism, vector: np.ndarray) -> tuple[float, np.ndarray, list[tuple[Cell, float]]]:
         scored: list[tuple[Cell, float]] = []
@@ -475,6 +552,7 @@ class ColonyMindEngine:
                     shift,
                     -shift,
                     evaluator_rng,
+                    "outline" if offset % 2 else "filled",
                 )
                 if not self.organisms:
                     assigned = "unassigned"
@@ -516,6 +594,7 @@ class ColonyMindEngine:
                 ((index % 3) - 1) * 0.06,
                 0.0,
                 evaluator_rng,
+                "outline" if index % 2 else "filled",
             )
             for index, shape in enumerate(SHAPES * 4)
         ]

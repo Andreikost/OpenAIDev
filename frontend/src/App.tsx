@@ -9,15 +9,29 @@ const INITIAL_STATE: State = {
 };
 
 function Retina({ stimulus }: { stimulus: RetinalStimulus | null }) {
-  const side = stimulus?.retinaSide ?? 32;
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const side = stimulus?.retinaSide ?? 64;
   const pixels = stimulus?.retinaPixels ?? Array.from({ length: side * side }, () => 0);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext('2d');
+    if (!canvas || !context) return;
+    canvas.width = side;
+    canvas.height = side;
+    const image = context.createImageData(side, side);
+    pixels.forEach((intensity, index) => {
+      const value = Math.max(0, Math.min(1, intensity));
+      image.data[index * 4] = 5 + value * 85;
+      image.data[index * 4 + 1] = 13 + value * 218;
+      image.data[index * 4 + 2] = 20 + value * 235;
+      image.data[index * 4 + 3] = 255;
+    });
+    context.putImageData(image, 0, 0);
+  }, [pixels, side]);
+
   return <div className={`retina ${stimulus ? 'active' : 'empty'}`}>
-    <svg viewBox={`0 0 ${side} ${side}`} role="img" aria-label="Unlabeled retinal intensity matrix">
-      <rect width={side} height={side} className="retina-background" />
-      {pixels.map((intensity, index) => <rect key={index} x={index % side} y={Math.floor(index / side)} width="1.02" height="1.02" fill={`rgba(102, 224, 255, ${Math.max(0.02, intensity)})`} />)}
-      {Array.from({ length: side + 1 }, (_, index) => <path key={`v-${index}`} d={`M ${index} 0 V ${side}`} />)}
-      {Array.from({ length: side + 1 }, (_, index) => <path key={`h-${index}`} d={`M 0 ${index} H ${side}`} />)}
-    </svg>
+    <canvas ref={canvasRef} role="img" aria-label="Unlabeled retinal intensity matrix" />
     <span>RETINA {side}×{side}</span>
   </div>;
 }
@@ -48,15 +62,17 @@ function LivingArchitecture({ state, selectedId, onSelect }: { state: State; sel
       context.lineWidth = 0.12; context.strokeStyle = 'rgba(112,218,255,.075)';
       for (let grid = 10; grid < 100; grid += 10) { context.beginPath(); context.moveTo(grid, 0); context.lineTo(grid, 100); context.stroke(); context.beginPath(); context.moveTo(0, grid); context.lineTo(100, grid); context.stroke(); }
 
-      state.informationPatches.forEach((patch, index) => {
+      state.informationPatches.slice(-8).forEach((patch, index) => {
         const age = Math.max(0, state.stepCount - patch.createdStep);
         const pulse = 1 + Math.sin(now * 0.006 + index) * 0.22;
         const alpha = Math.max(0.12, 0.85 - age / 22);
-        context.globalAlpha = alpha;
+        context.globalAlpha = alpha * .72;
         context.strokeStyle = patch.consumedBy ? '#5cd7ff' : '#ffc36d';
-        context.fillStyle = patch.consumedBy ? 'rgba(85,215,255,.18)' : 'rgba(255,187,93,.3)';
-        context.beginPath(); context.arc(patch.x, patch.y, (1.2 + patch.amount * 2.5) * pulse, 0, Math.PI * 2); context.fill(); context.stroke();
-        context.beginPath(); context.moveTo(patch.x - 1.4, patch.y); context.lineTo(patch.x + 1.4, patch.y); context.moveTo(patch.x, patch.y - 1.4); context.lineTo(patch.x, patch.y + 1.4); context.stroke();
+        context.fillStyle = patch.consumedBy ? 'rgba(85,215,255,.12)' : 'rgba(255,187,93,.2)';
+        context.lineWidth = .18;
+        const patchRadius = (.45 + patch.amount * 1.1) * pulse;
+        context.beginPath(); context.arc(patch.x, patch.y, patchRadius, 0, Math.PI * 2); context.fill(); context.stroke();
+        context.beginPath(); context.moveTo(patch.x - .7, patch.y); context.lineTo(patch.x + .7, patch.y); context.moveTo(patch.x, patch.y - .7); context.lineTo(patch.x, patch.y + .7); context.stroke();
       });
       context.globalAlpha = 1;
 
@@ -65,10 +81,12 @@ function LivingArchitecture({ state, selectedId, onSelect }: { state: State; sel
         if (!members.length) return;
         const centerX = members.reduce((sum, organism) => sum + organism.x, 0) / members.length;
         const centerY = members.reduce((sum, organism) => sum + organism.y, 0) / members.length;
-        context.strokeStyle = 'rgba(177,132,255,.7)'; context.lineWidth = 0.45; context.setLineDash([1.4, 1.1]);
+        const selectedColony = members.some((organism) => organism.id === selectedId);
+        context.strokeStyle = selectedColony ? 'rgba(198,167,255,.86)' : 'rgba(177,132,255,.32)'; context.lineWidth = selectedColony ? .34 : .2; context.setLineDash([1.0, .85]);
         members.forEach((organism) => { context.beginPath(); context.moveTo(centerX, centerY); context.lineTo(organism.x, organism.y); context.stroke(); });
-        context.beginPath(); context.arc(centerX, centerY, 8 + Math.sqrt(members.length) * 4 + Math.sin(now * .002) * .8, 0, Math.PI * 2); context.stroke(); context.setLineDash([]);
-        context.fillStyle = '#c9afff'; context.font = "2.4px 'DM Mono', monospace"; context.textAlign = 'center'; context.fillText(colony.id, centerX, centerY - 11);
+        const colonyRadius = 4.5 + Math.sqrt(members.length) * 2 + Math.sin(now * .002) * .3;
+        context.beginPath(); context.arc(centerX, centerY, colonyRadius, 0, Math.PI * 2); context.stroke(); context.setLineDash([]);
+        if (selectedColony) { context.fillStyle = '#d7c5ff'; context.font = "1.8px 'DM Mono', monospace"; context.textAlign = 'center'; context.fillText(colony.id, centerX, centerY - colonyRadius - 1.3); }
       });
 
       const cellCounts = state.cells.reduce<Record<string, number>>((counts, cell) => ({ ...counts, [cell.organism_id]: (counts[cell.organism_id] ?? 0) + 1 }), {});
@@ -76,14 +94,14 @@ function LivingArchitecture({ state, selectedId, onSelect }: { state: State; sel
         const x = organism.x + Math.sin(now * .0017 + organismIndex * 2.1) * .55;
         const y = organism.y + Math.cos(now * .0014 + organismIndex * 1.7) * .55;
         const cells = cellCounts[organism.id] ?? 1;
-        const radius = 2.7 + Math.sqrt(cells) * .9;
-        context.strokeStyle = organism.color; context.globalAlpha = .28; context.lineWidth = .8;
-        context.beginPath(); context.moveTo(x, y); context.lineTo(x - Math.cos(organism.heading) * (5 + radius), y - Math.sin(organism.heading) * (5 + radius)); context.stroke();
-        context.globalAlpha = .18; context.fillStyle = organism.color; context.beginPath(); context.arc(x, y, radius * 2.5, 0, Math.PI * 2); context.fill();
+        const radius = 1.15 + Math.sqrt(cells) * .32;
+        context.strokeStyle = organism.color; context.globalAlpha = .2; context.lineWidth = .28;
+        context.beginPath(); context.moveTo(x, y); context.lineTo(x - Math.cos(organism.heading) * (3 + radius), y - Math.sin(organism.heading) * (3 + radius)); context.stroke();
+        context.globalAlpha = .1; context.fillStyle = organism.color; context.beginPath(); context.arc(x, y, radius * 1.8, 0, Math.PI * 2); context.fill();
         context.globalAlpha = 1; context.fillStyle = organism.color; context.beginPath(); context.arc(x, y, radius, 0, Math.PI * 2); context.fill();
-        context.strokeStyle = selectedId === organism.id ? '#ffffff' : organism.color; context.lineWidth = selectedId === organism.id ? .75 : .22; context.stroke();
-        for (let cell = 0; cell < cells; cell += 1) { const angle = now * .0012 * (cell % 2 ? -1 : 1) + cell * 2.399 + organismIndex; const orbit = radius + 2.4 + (cell % 3) * .7; context.fillStyle = organism.color; context.beginPath(); context.arc(x + Math.cos(angle) * orbit, y + Math.sin(angle) * orbit, .65 + (cell % 2) * .18, 0, Math.PI * 2); context.fill(); }
-        context.fillStyle = '#d9efff'; context.font = "2px 'DM Mono', monospace"; context.textAlign = 'center'; context.fillText(organism.id, x, y + radius + 5.2);
+        context.strokeStyle = selectedId === organism.id ? '#ffffff' : organism.color; context.lineWidth = selectedId === organism.id ? .5 : .16; context.stroke();
+        for (let cell = 0; cell < Math.min(cells, 8); cell += 1) { const angle = now * .0012 * (cell % 2 ? -1 : 1) + cell * 2.399 + organismIndex; const orbit = radius + 1.05 + (cell % 2) * .35; context.fillStyle = organism.color; context.beginPath(); context.arc(x + Math.cos(angle) * orbit, y + Math.sin(angle) * orbit, .3 + (cell % 2) * .08, 0, Math.PI * 2); context.fill(); }
+        if (selectedId === organism.id) { context.fillStyle = '#e7f5ff'; context.font = "1.8px 'DM Mono', monospace"; context.textAlign = 'center'; context.fillText(organism.id, x, y + radius + 3.0); }
       });
       context.globalAlpha = 1;
       if (!state.organisms.length) { context.fillStyle = '#6f8ca3'; context.font = "3px 'DM Mono', monospace"; context.textAlign = 'center'; context.fillText('ZERO LEARNED STRUCTURE', 50, 50); }
@@ -98,7 +116,7 @@ function LivingArchitecture({ state, selectedId, onSelect }: { state: State; sel
     const x = (event.clientX - box.left) / box.width * 100;
     const y = (event.clientY - box.top) / box.height * 100;
     const nearest = state.organisms.map((organism) => ({ organism, distance: Math.hypot(organism.x - x, organism.y - y) })).sort((a, b) => a.distance - b.distance)[0];
-    if (nearest && nearest.distance < 12) onSelect(nearest.organism.id);
+    if (nearest && nearest.distance < 7) onSelect(nearest.organism.id);
   }
 
   return <canvas ref={canvasRef} className="ecosystem-canvas" onClick={selectAt} aria-label="Living self-organizing learning habitat" />;
@@ -120,8 +138,19 @@ export default function App() {
   useEffect(() => { void refresh(); }, [refresh]);
   useEffect(() => {
     if (!running) return;
-    const timer = window.setInterval(() => { void api.step(speed).then(setState).catch(() => { setRunning(false); setNotice('Training paused because the API is unavailable.'); }); }, 650);
-    return () => window.clearInterval(timer);
+    let cancelled = false;
+    let timer = 0;
+    const advance = async () => {
+      try {
+        const nextState = await api.step(speed);
+        if (!cancelled) setState(nextState);
+      } catch {
+        if (!cancelled) { setRunning(false); setNotice('Training paused because the API is unavailable.'); }
+      }
+      if (!cancelled) timer = window.setTimeout(() => { void advance(); }, 650);
+    };
+    void advance();
+    return () => { cancelled = true; window.clearTimeout(timer); };
   }, [running, speed]);
 
   const selected = useMemo(() => state.organisms.find((organism) => organism.id === selectedId) ?? state.organisms[0], [state.organisms, selectedId]);
@@ -145,7 +174,7 @@ export default function App() {
     {notice && <p className="notice">{notice}</p>}
     <section className="metrics"><Metric label="Unsupervised loss" value={state.metrics.loss.toFixed(4)} hint="lower is better"/><Metric label="Active cells" value={state.metrics.activeCells}/><Metric label="Organism experts" value={state.metrics.activeOrganisms}/><Metric label="Colonies" value={state.metrics.activeColonies}/><Metric label="Resource score" value={state.metrics.resourceScore.toFixed(3)} hint="benefit − proxy cost"/><Metric label="State hash" value={state.stateHash}/></section>
     <section className="workspace">
-      <aside className="panel input-panel"><p className="panel-title">Retinal information stream</p><div className="retina-card"><Retina stimulus={state.currentStimulus}/><div><strong>{state.currentStimulus ? 'Unlabeled retinal stimulus' : 'Waiting for photons'}</strong><span>{state.currentStimulus ? `${Math.round(state.currentStimulus.scale * 100)}% scale · ${Math.round(state.currentStimulus.rotation * 180 / Math.PI)}° rotation · noise ${state.currentStimulus.noise}` : 'The learner begins with zero cells and sees only pixel intensity.'}</span></div></div><dl><div><dt>Semantic labels received</dt><dd>Never</dd></div><div><dt>Current step</dt><dd>{state.stepCount}</dd></div><div><dt>Retinal resolution</dt><dd>{state.currentStimulus ? `${state.currentStimulus.retinaSide} × ${state.currentStimulus.retinaSide}` : '32 × 32'}</dd></div><div><dt>Position offset</dt><dd>{state.currentStimulus ? `${state.currentStimulus.offsetX}, ${state.currentStimulus.offsetY}` : '—'}</dd></div><div><dt>Occluded area</dt><dd>{Math.round((state.currentStimulus?.occlusion ?? 0) * 100)}%</dd></div></dl><div className="rule"><b>Retinal boundary</b><span>The generator knows which shape it renders. The learner receives only the fine-grained, anti-aliased intensity matrix shown above.</span></div></aside>
+      <aside className="panel input-panel"><p className="panel-title">Retinal information stream</p><div className="retina-card"><Retina stimulus={state.currentStimulus}/><div><strong>{state.currentStimulus ? 'Unlabeled retinal stimulus' : 'Waiting for photons'}</strong><span>{state.currentStimulus ? `${state.currentStimulus.renderMode} · ${Math.round(state.currentStimulus.scale * 100)}% scale · ${Math.round(state.currentStimulus.rotation * 180 / Math.PI)}° rotation · noise ${state.currentStimulus.noise}` : 'The learner begins with zero cells and sees only pixel intensity.'}</span></div></div><dl><div><dt>Semantic labels received</dt><dd>Never</dd></div><div><dt>Current step</dt><dd>{state.stepCount}</dd></div><div><dt>Retinal resolution</dt><dd>{state.currentStimulus ? `${state.currentStimulus.retinaSide} × ${state.currentStimulus.retinaSide}` : '64 × 64'}</dd></div><div><dt>Position offset</dt><dd>{state.currentStimulus ? `${state.currentStimulus.offsetX}, ${state.currentStimulus.offsetY}` : '—'}</dd></div><div><dt>Occluded area</dt><dd>{Math.round((state.currentStimulus?.occlusion ?? 0) * 100)}%</dd></div></dl><div className="rule"><b>Retinal boundary</b><span>The generator knows which shape it renders. The learner receives only the 64 × 64 anti-aliased intensity matrix—filled and contour stimuli both arrive without shape labels.</span></div></aside>
       <section className="panel ecosystem"><div className="panel-header"><div><p className="panel-title">Living architecture</p><span>Organisms forage retinal information; colonies add cohesion only when cooperation pays.</span></div><span className="seed">seed {state.seed}</span></div><LivingArchitecture state={state} selectedId={selected?.id ?? null} onSelect={setSelectedId}/><div className="legend"><span><i className="food-dot"/>information food</span><span><i className="dot cyan"/>cell</span><span><i className="dot violet"/>organism</span><span><i className="ring"/>persistent colony</span></div></section>
       <aside className="panel inspector"><p className="panel-title">Selected organism</p>{selected ? <><div className="organism-heading"><i style={{ background: selected.color }}/><div><strong>{selected.id}</strong><span>lineage {selected.lineage}</span></div></div><dl><div><dt>Cells</dt><dd>{cellsByOrganism[selected.id] ?? 0}</dd></div><div><dt>Energy</dt><dd>{Math.round(selected.energy * 100)}%</dd></div><div><dt>Marginal contribution</dt><dd>{selected.contribution.toFixed(4)}</dd></div><div><dt>Colony</dt><dd>{selected.colonyId ?? 'independent'}</dd></div></dl><button className="secondary full" onClick={() => void runAblation(selected)}>Run read-only ablation</button>{ablation?.organismId === selected.id && <div className="ablation"><b>Evidence</b><span>Loss changes by {ablation.delta.toFixed(4)} when {selected.id} is removed.</span><small>{ablation.modelModified ? 'Warning: state changed' : 'Live state preserved'}</small></div>}</> : <p className="empty-copy">An organism inspector will appear after the first unlabeled stimulus creates a pioneer cell.</p>}</aside>
     </section>

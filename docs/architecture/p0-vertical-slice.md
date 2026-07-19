@@ -33,7 +33,8 @@ evidence-linked heuristic recommendations for the next experiment.
 ## Structure
 
 - Cells are adaptive feature prototypes.
-- Organisms are small dynamic collections of cells.
+- Organisms are small dynamic collections of cells with three lifecycle states:
+  `young`, `mature`, and `dormant`.
 - Colonies are persistent pairs of complementary mature organisms.
 - The resource score is marginal unsupervised benefit minus active-structure
   proxy cost.
@@ -47,12 +48,41 @@ evidence-linked heuristic recommendations for the next experiment.
   existing specializations. The decision uses only feature-vector distance;
   shape names are not available to the learner.
 
+## P1 long-term memory lifecycle
+
+The original short-lived population policy was unsuitable for learning because
+it could erase a specialization before the system had enough evidence to judge
+it. The current policy ages every resident organism on every global step, not
+only the winning organism. Young organisms learn at full plasticity. After at
+least 120 steps and eight wins they become mature and update more slowly, which
+reduces catastrophic drift.
+
+An unused mature organism becomes dormant only after 2,000 inactive steps.
+Dormancy keeps its prototype and cells in resident memory while excluding it
+from routine learning updates and active-compute proxies. A retinal input close
+to its specialization reactivates it with temporarily elevated plasticity.
+
+For each new stimulus, a cheap specialization comparison selects a response
+committee of at most four available organisms. Only that committee performs the
+more expensive cell-level reconstruction and learning update; all other
+organisms remain resident and retrievable. The state and JSON report therefore
+show active and resident populations separately.
+
+No organism can be archived during its first 5,000 lifetime steps. After that,
+archival still requires all of the following evidence: long inactivity,
+sustained negative value, a nearly duplicate resident specialization, and a
+non-positive replay-buffer ablation. The JSON v3 report separates processing
+from resident organisms/cells and records lifecycle state, age, wins,
+reactivations, policy thresholds, and the archive registry.
+
 ## MVP limitations
 
 - The resource ledger is a compute and memory proxy, not measured wattage.
 - Colony synergy is deliberately simple and must be improved with multi-seed
   comparisons and stronger counterfactual attribution.
 - The evaluator currently reports purity. Standard NMI and ARI belong to P1.
+- The lifecycle prevents premature forgetting, but it does not by itself create
+  rotation/scale-invariant representations; that remains the next learning-quality experiment.
 - GPT-5.6 curriculum and explanation calls, camera input, and physical energy
   measurements are P1+ work and are absent from this release.
 

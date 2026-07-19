@@ -38,6 +38,15 @@ class Organism:
     specialization: list[float] = field(default_factory=list)
     colony_id: str | None = None
     age_steps: int = 0
+    born_step: int = 0
+    wins: int = 0
+    last_active_step: int = 0
+    lifecycle_state: str = "young"
+    protected_until: int = 0
+    low_value_steps: int = 0
+    dormant_since: int | None = None
+    reactivations: int = 0
+    last_reactivated_step: int | None = None
     contribution: float = 0.0
     x: float = 50.0
     y: float = 50.0
@@ -65,6 +74,19 @@ class ColonyMindEngine:
 
     retina_side = 64
     vector_size = retina_side * retina_side
+    maturity_age = 120
+    maturity_wins = 8
+    minimum_lifespan = 5_000
+    dormancy_after_inactive = 2_000
+    archive_after_inactive = 5_000
+    low_value_grace = 2_000
+    reactivation_distance = 0.035
+    redundancy_distance = 0.018
+    archive_ablation_tolerance = 0.0005
+    max_processing_organisms = 8
+    max_resident_organisms = 16
+    response_committee_size = 4
+    replay_capacity = 64
 
     def __init__(self, seed: int = 20260718) -> None:
         self.reset(seed)
@@ -80,6 +102,9 @@ class ColonyMindEngine:
         self.structural_history: list[dict[str, Any]] = []
         self.event_totals: dict[str, int] = {}
         self.audit_history: list[dict[str, Any]] = []
+        self.replay_buffer: list[np.ndarray] = []
+        self.organism_archive: list[dict[str, Any]] = []
+        self.current_committee_ids: list[str] = []
         self.loss_history: list[float] = []
         self.current_stimulus: dict[str, Any] | None = None
         self.information_patches: list[dict[str, Any]] = []
@@ -232,6 +257,9 @@ class ColonyMindEngine:
             color=COLORS[(self._ids["organism"] - 1) % len(COLORS)],
             specialization=prototype.round(4).tolist(),
             energy=0.54 if parent else 0.62,
+            born_step=self.step_count,
+            last_active_step=self.step_count,
+            protected_until=self.step_count + self.minimum_lifespan,
             x=min(92.0, max(8.0, information_x + self.rng.uniform(-6.0, 6.0))),
             y=min(92.0, max(8.0, information_y + self.rng.uniform(-6.0, 6.0))),
             heading=self.rng.uniform(-math.pi, math.pi),
@@ -365,8 +393,188 @@ class ColonyMindEngine:
         reconstruction = sum(np.asarray(cell.prototype) * score for cell, score in scored) / total
         return activation, reconstruction, scored
 
+    def _processing_organisms(self) -> list[Organism]:
+        return [organism for organism in self.organisms.values() if organism.lifecycle_state != "dormant"]
+
+    def _active_committee(self) -> list[Organism]:
+        return [
+            self.organisms[organism_id]
+            for organism_id in self.current_committee_ids
+            if organism_id in self.organisms
+            and self.organisms[organism_id].lifecycle_state != "dormant"
+        ]
+
+    def _advance_lifecycle(self, vector: np.ndarray) -> None:
+        for organism in self.organisms.values():
+            organism.age_steps += 1
+            if organism.last_active_step < self.step_count:
+                organism.contribution *= 0.998
+            if organism.utility < -0.012 and organism.contribution < 0.001:
+                organism.low_value_steps += 1
+            else:
+                organism.low_value_steps = max(0, organism.low_value_steps - 4)
+
+            if (
+                organism.lifecycle_state == "young"
+                and organism.age_steps >= self.maturity_age
+                and organism.wins >= self.maturity_wins
+            ):
+                organism.lifecycle_state = "mature"
+                self._event(
+                    "ORGANISM_MATURED",
+                    organism.id,
+                    ["LONG_TERM_SPECIALIZATION_SURVIVED"],
+                    {"age": organism.age_steps, "wins": organism.wins},
+                )
+
+            inactive_steps = self.step_count - organism.last_active_step
+            may_sleep = organism.lifecycle_state == "mature" or organism.age_steps >= self.minimum_lifespan
+            if (
+                organism.lifecycle_state != "dormant"
+                and may_sleep
+                and inactive_steps >= self.dormancy_after_inactive
+            ):
+                organism.lifecycle_state = "dormant"
+                organism.dormant_since = self.step_count
+                self._event(
+                    "ORGANISM_DORMANT",
+                    organism.id,
+                    ["LONG_TERM_INACTIVITY", "MEMORY_RETAINED_AT_LOW_COMPUTE"],
+                    {"inactiveSteps": inactive_steps, "age": organism.age_steps},
+                )
+
+        dormant = [organism for organism in self.organisms.values() if organism.lifecycle_state == "dormant"]
+        if not dormant:
+            return
+        closest, distance = min(
+            ((organism, self._distance(vector, organism.specialization)) for organism in dormant),
+            key=lambda item: item[1],
+        )
+        if distance <= self.reactivation_distance or not self._processing_organisms():
+            closest.lifecycle_state = "mature"
+            closest.dormant_since = None
+            closest.reactivations += 1
+            closest.last_reactivated_step = self.step_count
+            closest.last_active_step = self.step_count
+            self._event(
+                "ORGANISM_REACTIVATED",
+                closest.id,
+                ["FAMILIAR_INFORMATION_RETURNED"],
+                {"distance": distance, "reactivations": closest.reactivations},
+            )
+
+    def _replay_ablation_delta(self, organism_id: str) -> float:
+        if not self.replay_buffer or organism_id not in self.organisms:
+            return 1.0
+        residents = list(self.organisms.values())
+        alternatives = [organism for organism in residents if organism.id != organism_id]
+        if not alternatives:
+            return 1.0
+        with_errors: list[float] = []
+        without_errors: list[float] = []
+        for vector in self.replay_buffer:
+            with_errors.append(min(self._distance(vector, organism.specialization) for organism in residents))
+            without_errors.append(min(self._distance(vector, organism.specialization) for organism in alternatives))
+        return float(np.mean(without_errors) - np.mean(with_errors))
+
+    def _update_cell_redundancy(self) -> None:
+        """Estimate whether each cell is duplicating another cell in its organism."""
+        for organism in self.organisms.values():
+            resident_cells = [self.cells[cell_id] for cell_id in organism.cells if cell_id in self.cells]
+            for cell in resident_cells:
+                alternatives = [other for other in resident_cells if other.id != cell.id]
+                if not alternatives:
+                    cell.redundancy = 0.0
+                    continue
+                nearest = min(
+                    self._distance(np.asarray(cell.prototype), other.prototype)
+                    for other in alternatives
+                )
+                cell.redundancy = math.exp(-nearest / 0.012)
+
+    def _archive_if_safe(self) -> None:
+        if len(self.organisms) <= 1:
+            return
+        for organism in list(self.organisms.values()):
+            inactive_steps = self.step_count - organism.last_active_step
+            if (
+                organism.lifecycle_state != "dormant"
+                or self.step_count < organism.protected_until
+                or organism.age_steps < self.minimum_lifespan
+                or inactive_steps < self.archive_after_inactive
+                or organism.low_value_steps < self.low_value_grace
+            ):
+                continue
+            others = [other for other in self.organisms.values() if other.id != organism.id]
+            nearest_distance = min(
+                (self._distance(np.asarray(organism.specialization), other.specialization) for other in others),
+                default=1.0,
+            )
+            if nearest_distance > self.redundancy_distance:
+                continue
+            ablation_delta = self._replay_ablation_delta(organism.id)
+            if ablation_delta > self.archive_ablation_tolerance:
+                continue
+
+            colony_id = organism.colony_id
+            archived_cells = len(organism.cells)
+            self.organism_archive.append({
+                "id": organism.id,
+                "lineage": organism.lineage,
+                "bornStep": organism.born_step,
+                "archivedStep": self.step_count,
+                "ageSteps": organism.age_steps,
+                "wins": organism.wins,
+                "reactivations": organism.reactivations,
+                "cells": archived_cells,
+                "nearestDistance": round(nearest_distance, 6),
+                "replayAblationDelta": round(ablation_delta, 6),
+                "reason": "REDUNDANT_LONG_DORMANT_MEMORY",
+            })
+            self.organism_archive = self.organism_archive[-100:]
+            for cell_id in organism.cells:
+                self.cells.pop(cell_id, None)
+            self.organisms.pop(organism.id, None)
+            self._event(
+                "CELLS_ARCHIVED",
+                organism.id,
+                ["PARENT_MEMORY_SAFELY_ARCHIVED"],
+                {"cells": archived_cells},
+            )
+            if colony_id and colony_id in self.colonies:
+                colony = self.colonies[colony_id]
+                colony.member_ids = [member_id for member_id in colony.member_ids if member_id != organism.id]
+                colony.core_members = [member_id for member_id in colony.core_members if member_id != organism.id]
+                if len(colony.member_ids) < 2:
+                    for member_id in colony.member_ids:
+                        if member_id in self.organisms:
+                            self.organisms[member_id].colony_id = None
+                    self.colonies.pop(colony_id, None)
+                    self._event(
+                        "COLONY_DISSOLVED",
+                        colony_id,
+                        ["INSUFFICIENT_ACTIVE_MEMBERS"],
+                        {"remainingMembers": len(colony.member_ids)},
+                    )
+            self._event(
+                "ORGANISM_ARCHIVED",
+                organism.id,
+                ["LONG_DORMANCY", "REDUNDANT_MEMORY", "NON_POSITIVE_REPLAY_ABLATION"],
+                {
+                    "utility": organism.utility,
+                    "inactiveSteps": inactive_steps,
+                    "nearestDistance": nearest_distance,
+                    "replayAblationDelta": ablation_delta,
+                },
+            )
+            break
+
     def _create_colony_if_useful(self) -> None:
-        unassigned = [org for org in self.organisms.values() if org.colony_id is None and org.age_steps >= 8]
+        unassigned = [
+            organism
+            for organism in self._processing_organisms()
+            if organism.colony_id is None and organism.lifecycle_state == "mature"
+        ]
         if len(unassigned) < 2:
             return
         first, second = sorted(unassigned, key=lambda org: org.utility, reverse=True)[:2]
@@ -388,7 +596,8 @@ class ColonyMindEngine:
         self._event("COLONY_FORMED", colony.id, ["PERSISTENT_COMPLEMENTARY_SPECIALIZATION", "POSITIVE_JOINT_VALUE"], {"synergy": synergy, "diversity": diversity})
 
     def _structural_review(self, vector: np.ndarray, loss: float) -> None:
-        best = max(self.organisms.values(), key=lambda org: org.utility, default=None)
+        processing = self._processing_organisms()
+        best = max(processing, key=lambda org: org.utility, default=None)
         novelty = min(
             (self._distance(vector, organism.specialization) for organism in self.organisms.values()),
             default=1.0,
@@ -397,39 +606,30 @@ class ColonyMindEngine:
             self.high_residual_streak += 1
         else:
             self.high_residual_streak = max(0, self.high_residual_streak - 1)
-        novel_regime = novelty > 0.045 and len(self.organisms) < 3 and self.step_count >= 24
-        if (self.high_residual_streak >= 3 or novel_regime) and len(self.organisms) < 8:
+        novel_regime = novelty > 0.045 and len(processing) < 3 and self.step_count >= 24
+        capacity_available = (
+            len(processing) < self.max_processing_organisms
+            and len(self.organisms) < self.max_resident_organisms
+        )
+        if (self.high_residual_streak >= 3 or novel_regime) and capacity_available:
             reason = "NOVEL_UNLABELED_VISUAL_REGIME" if novel_regime else "PERSISTENT_UNSERVED_VISUAL_RESIDUAL"
             self._create_organism(vector, reason, best)
             self.high_residual_streak = 0
         else:
             if best and loss > 0.025 and len(best.cells) < 8:
                 self._create_cell(best, vector, "LOCAL_RESIDUAL_SPECIALIZATION")
+        self._update_cell_redundancy()
         self._create_colony_if_useful()
-        for organism in list(self.organisms.values()):
-            if organism.age_steps > 300 and organism.utility < -0.018 and len(self.organisms) > 1:
-                colony_id = organism.colony_id
-                for cell_id in organism.cells:
-                    self.cells.pop(cell_id, None)
-                self.organisms.pop(organism.id, None)
-                if colony_id and colony_id in self.colonies:
-                    colony = self.colonies[colony_id]
-                    colony.member_ids = [member_id for member_id in colony.member_ids if member_id != organism.id]
-                    colony.core_members = [member_id for member_id in colony.core_members if member_id != organism.id]
-                    if len(colony.member_ids) < 2:
-                        for member_id in colony.member_ids:
-                            if member_id in self.organisms:
-                                self.organisms[member_id].colony_id = None
-                        self.colonies.pop(colony_id, None)
-                        self._event("COLONY_DISSOLVED", colony_id, ["INSUFFICIENT_ACTIVE_MEMBERS"], {"remainingMembers": len(colony.member_ids)})
-                self._event("ORGANISM_ARCHIVED", organism.id, ["PERSISTENT_NEGATIVE_MARGINAL_VALUE"], {"utility": organism.utility})
-                break
+        self._archive_if_safe()
 
     def step(self, count: int = 1) -> dict[str, Any]:
         for _ in range(max(1, min(count, 240))):
             self.step_count += 1
             vector, public, _label = self._sample()
             self.current_stimulus = public
+            self.replay_buffer.append(vector.copy())
+            self.replay_buffer = self.replay_buffer[-self.replay_capacity :]
+            self._advance_lifecycle(vector)
             novelty = min(
                 (self._distance(vector, organism.specialization) for organism in self.organisms.values()),
                 default=1.0,
@@ -437,11 +637,18 @@ class ColonyMindEngine:
             information_patch = self._record_information_patch(vector, public["id"], novelty)
             if not self.organisms:
                 pioneer = self._create_organism(vector, "FIRST_UNLABELED_STIMULUS")
+                self.current_committee_ids = [pioneer.id]
                 information_patch["consumedBy"] = pioneer.id
                 information_patch["amount"] = 0.12
                 self.loss_history.append(0.0)
                 continue
-            responses = [(org, *self._organism_response(org, vector)[:2]) for org in self.organisms.values()]
+            available = self._processing_organisms()
+            processing = sorted(
+                available,
+                key=lambda organism: self._distance(vector, organism.specialization),
+            )[: self.response_committee_size]
+            self.current_committee_ids = [organism.id for organism in processing]
+            responses = [(org, *self._organism_response(org, vector)[:2]) for org in processing]
             responses.sort(key=lambda row: row[1], reverse=True)
             winner, winner_activation, reconstruction = responses[0]
             self._move_organisms(responses, information_patch, winner.id)
@@ -454,18 +661,25 @@ class ColonyMindEngine:
             previous = self.previous_loss if self.previous_loss is not None else error
             improvement = max(-0.08, min(0.08, previous - error))
             self.previous_loss = error
-            active_cost = 0.0018 * len(winner.cells) + 0.0008 * len(self.cells)
+            processing_cells = sum(len(organism.cells) for organism in processing)
+            active_cost = 0.0018 * len(winner.cells) + 0.0008 * processing_cells
             communication_cost = 0.003 if winner.colony_id else 0.0
             winner.contribution = max(0.0, improvement + 0.12 * error)
             winner.utility = 0.84 * winner.utility + 0.16 * (winner.contribution - active_cost - communication_cost)
             winner.energy = min(1.5, max(0.0, winner.energy + winner.utility * 0.11))
-            winner.age_steps += 1
+            winner.wins += 1
+            winner.last_active_step = self.step_count
+            recently_reactivated = (
+                winner.last_reactivated_step is not None
+                and self.step_count - winner.last_reactivated_step <= 500
+            )
+            plasticity = 1.0 if winner.lifecycle_state == "young" else (0.55 if recently_reactivated else 0.35)
             for cell_id in winner.cells:
                 cell = self.cells[cell_id]
                 activation = math.exp(-self._distance(vector, cell.prototype) / 0.06)
                 cell.activation = activation
                 cell.age_steps += 1
-                learning_rate = 0.018 + 0.055 * activation
+                learning_rate = (0.018 + 0.055 * activation) * plasticity
                 prototype = np.asarray(cell.prototype)
                 prototype = prototype + learning_rate * (vector - prototype)
                 cell.prototype = np.clip(prototype, 0.0, 1.0).round(4).tolist()
@@ -483,6 +697,10 @@ class ColonyMindEngine:
         return self.state()
 
     def _state_payload(self) -> dict[str, Any]:
+        processing = self._active_committee()
+        dormant = [organism for organism in self.organisms.values() if organism.lifecycle_state == "dormant"]
+        processing_ids = {organism.id for organism in processing}
+        processing_cells = [cell for cell in self.cells.values() if cell.organism_id in processing_ids]
         organisms = []
         for organism in self.organisms.values():
             organisms.append({
@@ -495,6 +713,15 @@ class ColonyMindEngine:
                 "contribution": round(organism.contribution, 4),
                 "colonyId": organism.colony_id,
                 "ageSteps": organism.age_steps,
+                "bornStep": organism.born_step,
+                "wins": organism.wins,
+                "lastActiveStep": organism.last_active_step,
+                "inactiveSteps": max(0, self.step_count - organism.last_active_step),
+                "lifecycleState": organism.lifecycle_state,
+                "protectedUntil": organism.protected_until,
+                "lowValueSteps": organism.low_value_steps,
+                "dormantSince": organism.dormant_since,
+                "reactivations": organism.reactivations,
                 "x": round(organism.x, 2),
                 "y": round(organism.y, 2),
                 "heading": round(organism.heading, 3),
@@ -508,12 +735,19 @@ class ColonyMindEngine:
             "metrics": {
                 "loss": round(self.loss_history[-1] if self.loss_history else 0.0, 5),
                 "meanLoss": round(float(np.mean(self.loss_history)) if self.loss_history else 0.0, 5),
-                "activeCells": len(self.cells),
-                "activeOrganisms": len(self.organisms),
+                "activeCells": len(processing_cells),
+                "residentCells": len(self.cells),
+                "activeOrganisms": len(processing),
+                "residentOrganisms": len(self.organisms),
+                "dormantOrganisms": len(dormant),
                 "activeColonies": len(self.colonies),
-                "activeSynapsesProxy": max(0, sum(max(0, len(org.cells) - 1) for org in self.organisms.values())),
+                "activeSynapsesProxy": max(0, sum(max(0, len(org.cells) - 1) for org in processing)),
                 "memoryBytesProxy": len(self.cells) * self.vector_size * 8 + len(self.organisms) * 192 + len(self.colonies) * 144,
-                "resourceScore": round(sum(org.utility for org in self.organisms.values()), 4),
+                "resourceScore": round(
+                    sum(org.utility for org in processing)
+                    - 0.00005 * sum(len(org.cells) for org in dormant),
+                    4,
+                ),
                 "events": len(self.events),
             },
             "cells": [
@@ -790,8 +1024,14 @@ class ColonyMindEngine:
                 - np.mean(loss_series[:comparison_window])
             )
 
-        active_cells = list(self.cells.values())
-        active_organisms = list(self.organisms.values())
+        resident_cells = list(self.cells.values())
+        resident_organisms = list(self.organisms.values())
+        processing_organisms = self._active_committee()
+        processing_ids = {organism.id for organism in processing_organisms}
+        active_cells = [cell for cell in resident_cells if cell.organism_id in processing_ids]
+        dormant_organisms = [
+            organism for organism in resident_organisms if organism.lifecycle_state == "dormant"
+        ]
         active_colonies = list(self.colonies.values())
         cells_created = self.event_totals.get("CELL_BIRTH", 0)
         organisms_created = self.event_totals.get("ORGANISM_BIRTH", 0)
@@ -805,7 +1045,7 @@ class ColonyMindEngine:
             label = audit["externalAuditor"]["drawnLabel"]
             labels[label] = labels.get(label, 0) + 1
 
-        hidden_evaluation = self.evaluate_hidden() if active_organisms else {
+        hidden_evaluation = self.evaluate_hidden() if resident_organisms else {
             "modelModified": False,
             "sampleCount": 0,
             "purity": 0.0,
@@ -825,7 +1065,7 @@ class ColonyMindEngine:
                 "evidence": f"Draw & Audit agreement is {agreement_rate:.1%}.",
                 "action": "Increase training diversity and inspect which organism communities absorb conflicting shapes.",
             })
-        if hidden_evaluation["purity"] < 0.75 and active_organisms:
+        if hidden_evaluation["purity"] < 0.75 and resident_organisms:
             recommendations.append({
                 "priority": "high",
                 "evidence": f"Hidden-label community purity is {hidden_evaluation['purity']:.1%}.",
@@ -837,17 +1077,23 @@ class ColonyMindEngine:
                 "evidence": f"Recent loss increased by {loss_change:.5f} across comparison windows.",
                 "action": "Reduce prototype learning rate or add a replay buffer for previously learned visual regimes.",
             })
-        if active_organisms and len(active_cells) / len(active_organisms) >= 7.0:
+        if processing_organisms and len(active_cells) / len(processing_organisms) >= 7.0:
             recommendations.append({
                 "priority": "medium",
                 "evidence": "Mean cells per organism is near the current capacity limit.",
                 "action": "Compare cell splitting against organism birth using multi-seed resource-score ablations.",
             })
-        if len(active_organisms) >= 2 and not active_colonies:
+        if len(processing_organisms) >= 2 and not active_colonies:
             recommendations.append({
                 "priority": "medium",
                 "evidence": "Multiple organisms exist without a persistent colony.",
                 "action": "Inspect diversity and synergy thresholds to determine whether cooperation is being undervalued.",
+            })
+        if dormant_organisms:
+            recommendations.append({
+                "priority": "low",
+                "evidence": f"{len(dormant_organisms)} long-term memories are dormant and consume no learning updates.",
+                "action": "Present related visual regimes to test similarity-triggered reactivation before considering archival.",
             })
         if not recommendations:
             recommendations.append({
@@ -857,7 +1103,7 @@ class ColonyMindEngine:
             })
 
         return {
-            "schema": "colonymind.performance-report.v2",
+            "schema": "colonymind.performance-report.v3",
             "generatedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "simulation": {
                 "seed": self.seed,
@@ -878,22 +1124,52 @@ class ColonyMindEngine:
                 },
                 "cells": {
                     "active": len(active_cells),
+                    "resident": len(resident_cells),
                     "created": cells_created,
-                    "archivedWithOrganisms": max(0, cells_created - len(active_cells)),
+                    "archivedWithOrganisms": max(0, cells_created - len(resident_cells)),
                     "meanEnergy": round(float(np.mean([cell.energy for cell in active_cells])), 5) if active_cells else 0.0,
                     "meanUtility": round(float(np.mean([cell.utility for cell in active_cells])), 6) if active_cells else 0.0,
                     "meanActivation": round(float(np.mean([cell.activation for cell in active_cells])), 6) if active_cells else 0.0,
                     "meanRedundancy": round(float(np.mean([cell.redundancy for cell in active_cells])), 6) if active_cells else 0.0,
-                    "prototypeUpdateOperations": sum(cell.age_steps for cell in active_cells),
-                    "byOrganism": {organism.id: len(organism.cells) for organism in active_organisms},
+                    "prototypeUpdateOperations": sum(cell.age_steps for cell in resident_cells),
+                    "byOrganism": {organism.id: len(organism.cells) for organism in resident_organisms},
                 },
                 "population": {
-                    "activeOrganisms": len(active_organisms),
+                    "activeOrganisms": len(processing_organisms),
+                    "residentOrganisms": len(resident_organisms),
+                    "dormantOrganisms": len(dormant_organisms),
+                    "youngOrganisms": sum(organism.lifecycle_state == "young" for organism in resident_organisms),
+                    "matureOrganisms": sum(organism.lifecycle_state == "mature" for organism in resident_organisms),
                     "organismsCreated": organisms_created,
                     "organismsArchived": organisms_archived,
-                    "meanEnergy": round(float(np.mean([organism.energy for organism in active_organisms])), 5) if active_organisms else 0.0,
-                    "meanUtility": round(float(np.mean([organism.utility for organism in active_organisms])), 6) if active_organisms else 0.0,
-                    "lineages": len({organism.lineage for organism in active_organisms}),
+                    "meanEnergy": round(float(np.mean([organism.energy for organism in resident_organisms])), 5) if resident_organisms else 0.0,
+                    "meanUtility": round(float(np.mean([organism.utility for organism in resident_organisms])), 6) if resident_organisms else 0.0,
+                    "meanAgeSteps": round(float(np.mean([organism.age_steps for organism in resident_organisms])), 2) if resident_organisms else 0.0,
+                    "meanWins": round(float(np.mean([organism.wins for organism in resident_organisms])), 2) if resident_organisms else 0.0,
+                    "totalReactivations": sum(organism.reactivations for organism in resident_organisms),
+                    "lineages": len({organism.lineage for organism in resident_organisms}),
+                    "lifecyclePolicy": {
+                        "maturityAge": self.maturity_age,
+                        "maturityWins": self.maturity_wins,
+                        "minimumLifespan": self.minimum_lifespan,
+                        "dormancyAfterInactive": self.dormancy_after_inactive,
+                        "archiveAfterInactive": self.archive_after_inactive,
+                        "responseCommitteeSize": self.response_committee_size,
+                        "replayCapacity": self.replay_capacity,
+                    },
+                    "residents": [
+                        {
+                            "id": organism.id,
+                            "state": organism.lifecycle_state,
+                            "ageSteps": organism.age_steps,
+                            "wins": organism.wins,
+                            "inactiveSteps": max(0, self.step_count - organism.last_active_step),
+                            "protectedUntil": organism.protected_until,
+                            "reactivations": organism.reactivations,
+                        }
+                        for organism in resident_organisms
+                    ],
+                    "archiveRegistry": self.organism_archive,
                 },
                 "colonies": {
                     "active": len(active_colonies),
@@ -906,7 +1182,7 @@ class ColonyMindEngine:
                 "structuralAdaptations": {
                     "definition": "Mutation metrics represent structural adaptation events, not a genetic mutation operator.",
                     "total": sum(count for kind, count in self.event_totals.items() if kind != "SESSION_STARTED"),
-                    "prototypeUpdateOperations": sum(cell.age_steps for cell in active_cells),
+                    "prototypeUpdateOperations": sum(cell.age_steps for cell in resident_cells),
                     "byType": {kind: count for kind, count in sorted(self.event_totals.items()) if kind != "SESSION_STARTED"},
                     "history": self.structural_history,
                 },
@@ -926,6 +1202,8 @@ class ColonyMindEngine:
                 "The resource score is a compute proxy, not measured physical energy in watts.",
                 "Basic shapes are a controlled initial benchmark, not a camera-vision result.",
                 "Structural mutations are adaptation events; the current engine has no genetic mutation operator.",
+                "Dormancy reduces prototype updates but retains resident prototype memory; memoryBytesProxy therefore includes dormant organisms.",
+                "Archival requires long inactivity, sustained low value, redundancy, and non-positive replay-buffer ablation.",
                 "Recommendations are deterministic heuristics for experimentation, not proof of causal improvement.",
                 "The current hidden evaluation reports purity only; standard NMI and ARI remain planned.",
             ],

@@ -62,6 +62,92 @@ def test_novel_unlabeled_stimuli_can_form_a_colony() -> None:
     assert all(set(colony["member_ids"]).issubset(organism_ids) for colony in state["colonies"])
 
 
+def test_every_resident_organism_ages_even_when_it_does_not_win() -> None:
+    engine = ColonyMindEngine(seed=20260718)
+    engine.step(240)
+
+    assert len(engine.organisms) >= 2
+    assert any(organism.wins < organism.age_steps for organism in engine.organisms.values())
+    assert all(
+        organism.age_steps == engine.step_count - organism.born_step
+        for organism in engine.organisms.values()
+    )
+
+
+def test_organisms_mature_without_early_archival() -> None:
+    engine = ColonyMindEngine(seed=20260718)
+    state = engine.step(240)
+
+    assert any(organism["lifecycleState"] == "mature" for organism in state["organisms"])
+    assert engine.event_totals.get("ORGANISM_ARCHIVED", 0) == 0
+    assert state["metrics"]["residentOrganisms"] == engine.event_totals["ORGANISM_BIRTH"]
+
+
+def test_response_committee_bounds_active_compute_without_deleting_memory() -> None:
+    engine = ColonyMindEngine(seed=20260718)
+    state = engine.step(240)
+
+    assert state["metrics"]["activeOrganisms"] <= engine.response_committee_size
+    assert state["metrics"]["activeOrganisms"] <= state["metrics"]["residentOrganisms"]
+    assert state["metrics"]["activeCells"] <= state["metrics"]["residentCells"]
+
+
+def test_dormant_memory_reactivates_for_familiar_information() -> None:
+    engine = ColonyMindEngine(seed=19)
+    engine.step(48)
+    target = next(iter(engine.organisms.values()))
+    target.lifecycle_state = "dormant"
+    target.dormant_since = engine.step_count
+    vector = np.asarray(target.specialization)
+
+    engine._advance_lifecycle(vector)
+
+    assert target.lifecycle_state == "mature"
+    assert target.reactivations == 1
+    assert engine.event_totals["ORGANISM_REACTIVATED"] == 1
+
+
+def test_archive_requires_long_redundancy_and_replay_ablation_evidence() -> None:
+    engine = ColonyMindEngine(seed=31)
+    vector, _public, _label = engine._sample()
+    engine._create_organism(vector, "TEST_MEMORY")
+    target = engine._create_organism(vector, "TEST_REDUNDANT_MEMORY")
+    engine.step_count = 6_000
+    target.lifecycle_state = "dormant"
+    target.age_steps = 6_000
+    target.last_active_step = 0
+    target.protected_until = 0
+    target.low_value_steps = engine.low_value_grace
+    target.utility = -0.1
+    engine.replay_buffer = [vector.copy()]
+
+    engine._archive_if_safe()
+
+    assert target.id not in engine.organisms
+    assert engine.event_totals["ORGANISM_ARCHIVED"] == 1
+    assert engine.organism_archive[0]["replayAblationDelta"] <= 0.0
+
+
+def test_minimum_lifespan_protects_even_redundant_dormant_memory() -> None:
+    engine = ColonyMindEngine(seed=37)
+    vector, _public, _label = engine._sample()
+    engine._create_organism(vector, "TEST_MEMORY")
+    target = engine._create_organism(vector, "TEST_PROTECTED_MEMORY")
+    engine.step_count = 6_000
+    target.lifecycle_state = "dormant"
+    target.age_steps = 6_000
+    target.last_active_step = 0
+    target.protected_until = 7_000
+    target.low_value_steps = engine.low_value_grace
+    target.utility = -0.1
+    engine.replay_buffer = [vector.copy()]
+
+    engine._archive_if_safe()
+
+    assert target.id in engine.organisms
+    assert engine.event_totals.get("ORGANISM_ARCHIVED", 0) == 0
+
+
 def test_public_stimulus_is_a_label_free_retina() -> None:
     engine = ColonyMindEngine(seed=42)
     vector, public, private_label = engine._sample()
@@ -148,11 +234,14 @@ def test_performance_report_contains_structure_and_drawing_evidence() -> None:
     before = engine.state_hash()
     report = engine.report()
 
-    assert report["schema"] == "colonymind.performance-report.v2"
+    assert report["schema"] == "colonymind.performance-report.v3"
     assert report["simulation"]["stateHash"] == before == engine.state_hash()
-    assert report["performance"]["cells"]["active"] == len(engine.cells)
+    assert report["performance"]["cells"]["resident"] == len(engine.cells)
+    assert report["performance"]["cells"]["active"] <= len(engine.cells)
     assert report["performance"]["cells"]["prototypeUpdateOperations"] > 0
-    assert report["performance"]["population"]["activeOrganisms"] == len(engine.organisms)
+    assert report["performance"]["population"]["activeOrganisms"] <= len(engine.organisms)
+    assert report["performance"]["population"]["residentOrganisms"] == len(engine.organisms)
+    assert report["performance"]["population"]["lifecyclePolicy"]["minimumLifespan"] == 5_000
     assert report["performance"]["colonies"]["active"] == len(engine.colonies)
     assert report["performance"]["structuralAdaptations"]["byType"]["CELL_BIRTH"] >= 1
     assert report["performance"]["drawAndAudit"]["trials"] == 1

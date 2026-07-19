@@ -47,6 +47,14 @@
 .agreement-box span { margin-top: 4px; color: #9eb2c4; font-size: 10px; line-height: 1.45; }
 .auditor-result > small { display: block; margin-top: 10px; color: #78dda7; font: 9px 'DM Mono', monospace; }
 @media (max-width: 1050px) { .metrics { grid-template-columns: repeat(3, 1fr); }.workspace { grid-template-columns: 1fr 1fr; }.ecosystem { grid-column: span 2; grid-row: 1; }.input-panel { grid-row: 2; }.inspector { grid-row: 2; }.hero { grid-template-columns: 1fr; }.hero-orbit { display: none; } }.nav-copy { display: none; } @media (max-width: 680px) { main { padding: 0 14px 24px; }.metrics, .workspace, .lower-grid { grid-template-columns: 1fr; }.ecosystem, .input-panel, .inspector { grid-column: auto; grid-row: auto; }.metric { min-height: 74px; }.hero { min-height: 0; padding: 40px 0 24px; } h1 { font-size: 39px; }.ecosystem { min-height: 400px; }.ecosystem-svg, .ecosystem-canvas { height: 300px; } }
+
+.legend { flex-wrap: wrap; }
+.dormant-dot { display: inline-block; width: 8px; height: 8px; margin-right: 5px; border: 1px dashed #6f8ca3; border-radius: 50%; background: #6f8ca344; }
+.organism-heading > div { min-width: 0; }
+.lifecycle-badge { margin-left: auto; border: 1px solid #ffffff24; border-radius: 999px; padding: 5px 7px; font: 9px 'DM Mono', monospace; letter-spacing: .7px; text-transform: uppercase; }
+.lifecycle-badge.young { color: #65d7f5; background: #133247; }
+.lifecycle-badge.mature { color: #79e6b0; background: #123629; }
+.lifecycle-badge.dormant { color: #9bacc0; background: #151e29; border-style: dashed; }
 @media (max-width: 900px) { .draw-lab-grid { grid-template-columns: 1fr 1fr; }.draw-stage { grid-row: span 2; }.auditor-result { grid-column: 2; } }
 @media (max-width: 680px) { .draw-lab-grid { grid-template-columns: 1fr; }.draw-stage, .auditor-result { grid-column: auto; grid-row: auto; }.draw-stage, .probe-result { min-height: 0; } }
 @media (max-width: 680px) { nav { height: auto; min-height: 76px; padding: 10px 0; }.nav-actions { flex-direction: column; align-items: stretch; }.report-button, nav .outline { padding: 7px 9px; font-size: 9px; } }

@@ -62,18 +62,33 @@ Dormancy keeps its prototype and cells in resident memory while excluding it
 from routine learning updates and active-compute proxies. A retinal input close
 to its specialization reactivates it with temporarily elevated plasticity.
 
-For each new stimulus, a cheap specialization comparison selects a response
-committee of at most four available organisms. Only that committee performs the
-more expensive cell-level reconstruction and learning update; all other
-organisms remain resident and retrievable. The state and JSON report therefore
-show active and resident populations separately.
+For each new stimulus, a cheap specialization comparison selects every organism
+within a relevance margin of the best response. This committee has no fixed
+member count. Only relevant organisms perform the more expensive cell-level
+reconstruction; all other organisms remain resident and retrievable.
 
 No organism can be archived during its first 5,000 lifetime steps. After that,
 archival still requires all of the following evidence: long inactivity,
 sustained negative value, a nearly duplicate resident specialization, and a
-non-positive replay-buffer ablation. The JSON v3 report separates processing
+non-positive replay-buffer ablation. The JSON v4 report separates processing
 from resident organisms/cells and records lifecycle state, age, wins,
 reactivations, policy thresholds, and the archive registry.
+
+## Open-ended information-food growth
+
+There are no fixed maxima for organisms, cells, or colonies. Growth is instead
+controlled by informational food: reconstruction residual above the digestion
+threshold. A noisy sample cannot create permanent structure. Residuals must
+form a repeated, label-free similarity cluster before they can create a cell or
+organism.
+
+Cells compete locally inside the responding organism. Only its strongest cell
+updates on a sample, allowing other cells to retain distinct specializations.
+When repeated low-residual evidence shows that an organism or colony has fully
+digested a visual regime, the group creates a persistent unlabeled memory
+engram. A recalled memory sets structural food to zero, so familiar information
+cannot grow more cells or organisms. The external evaluator may later associate
+these memories with semantic shapes, but shape names never enter learning.
 
 ## MVP limitations
 

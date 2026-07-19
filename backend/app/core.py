@@ -47,6 +47,9 @@ class Organism:
     dormant_since: int | None = None
     reactivations: int = 0
     last_reactivated_step: int | None = None
+    food_evidence: float = 0.0
+    digestion_evidence: float = 0.0
+    memory_ids: list[str] = field(default_factory=list)
     contribution: float = 0.0
     x: float = 50.0
     y: float = 50.0
@@ -63,6 +66,20 @@ class Colony:
     state: str = "confirmed"
     formed_step: int = 0
     synergy: float = 0.0
+
+
+@dataclass
+class MemoryEngram:
+    id: str
+    member_ids: list[str]
+    prototype: list[float]
+    created_step: int
+    last_recalled_step: int
+    recall_count: int = 0
+    digestion_count: int = 0
+    mean_error: float = 0.0
+    stability: float = 0.0
+    state: str = "consolidated"
 
 
 class ColonyMindEngine:
@@ -83,9 +100,14 @@ class ColonyMindEngine:
     reactivation_distance = 0.035
     redundancy_distance = 0.018
     archive_ablation_tolerance = 0.0005
-    max_processing_organisms = 8
-    max_resident_organisms = 16
-    response_committee_size = 4
+    digestion_error = 0.026
+    memory_recall_error = 0.034
+    digest_cluster_distance = 0.012
+    memory_evidence_required = 12.0
+    organism_birth_novelty = 0.035
+    cell_birth_novelty = 0.020
+    residual_support_required = 6.0
+    committee_relevance_margin = 0.010
     replay_capacity = 64
 
     def __init__(self, seed: int = 20260718) -> None:
@@ -98,6 +120,7 @@ class ColonyMindEngine:
         self.cells: dict[str, Cell] = {}
         self.organisms: dict[str, Organism] = {}
         self.colonies: dict[str, Colony] = {}
+        self.memories: dict[str, MemoryEngram] = {}
         self.events: list[dict[str, Any]] = []
         self.structural_history: list[dict[str, Any]] = []
         self.event_totals: dict[str, int] = {}
@@ -109,13 +132,15 @@ class ColonyMindEngine:
         self.current_stimulus: dict[str, Any] | None = None
         self.information_patches: list[dict[str, Any]] = []
         self.previous_loss: float | None = None
-        self.high_residual_streak = 0
-        self._ids = {"cell": 0, "organism": 0, "colony": 0, "sample": 0}
+        self.digested_samples = 0
+        self.total_information_food = 0.0
+        self.residual_vectors: dict[str, list[np.ndarray]] = {}
+        self._ids = {"cell": 0, "organism": 0, "colony": 0, "memory": 0, "sample": 0}
         self._event("SESSION_STARTED", "ecosystem", ["ZERO_LEARNED_STRUCTURE"], {})
 
     def _next_id(self, kind: str) -> str:
         self._ids[kind] += 1
-        prefix = {"cell": "cell", "organism": "org", "colony": "col", "sample": "sample"}[kind]
+        prefix = {"cell": "cell", "organism": "org", "colony": "col", "memory": "mem", "sample": "sample"}[kind]
         return f"{prefix}-{self._ids[kind]:03d}"
 
     def _event(self, kind: str, entity_id: str, reasons: list[str], metrics: dict[str, float]) -> None:
@@ -280,6 +305,71 @@ class ColonyMindEngine:
     @staticmethod
     def _distance(vector: np.ndarray, prototype: list[float]) -> float:
         return float(np.mean((vector - np.asarray(prototype)) ** 2))
+
+    def _digest_signature(self, vector: np.ndarray) -> np.ndarray:
+        """Rotation/scale/translation-tolerant, label-free food signature."""
+        image = np.asarray(vector, dtype=np.float64).reshape((self.retina_side, self.retina_side))
+        signal = np.clip(image - 0.06, 0.0, 1.0)
+        mask = signal > 0.12
+        if int(np.sum(mask)) < 8:
+            return np.zeros(24, dtype=np.float64)
+        rows, columns = np.where(mask)
+        weights = signal[rows, columns] + 0.05
+        center_x = float(np.average(columns, weights=weights))
+        center_y = float(np.average(rows, weights=weights))
+        dx = columns - center_x
+        dy = rows - center_y
+        radius = np.sqrt(dx * dx + dy * dy)
+        radius_scale = float(np.quantile(radius, 0.95)) or 1.0
+        normalized_radius = np.clip(radius / radius_scale, 0.0, 1.0)
+        radial, _edges = np.histogram(
+            normalized_radius,
+            bins=10,
+            range=(0.0, 1.0),
+            weights=weights,
+        )
+        radial = radial / max(1e-12, float(np.sum(radial)))
+        covariance = np.cov(np.stack((dx, dy)), aweights=weights)
+        eigenvalues = np.sort(np.linalg.eigvalsh(covariance))
+        anisotropy = float(eigenvalues[0] / max(1e-12, eigenvalues[-1]))
+        bbox_area = max(1, (rows.max() - rows.min() + 1) * (columns.max() - columns.min() + 1))
+        fill_ratio = float(np.sum(mask) / bbox_area)
+        mean_signal = float(np.mean(signal[mask]))
+        edge_changes = (
+            np.sum(mask[:, 1:] != mask[:, :-1])
+            + np.sum(mask[1:, :] != mask[:-1, :])
+        )
+        perimeter_ratio = float(edge_changes / max(1, np.sum(mask)))
+        angles = (np.arctan2(dy, dx) + math.pi) / (2.0 * math.pi)
+        angular_bins = np.minimum(31, (angles * 32).astype(int))
+        boundary_radius = np.zeros(32, dtype=np.float64)
+        for index, normalized in zip(angular_bins, normalized_radius, strict=False):
+            boundary_radius[index] = max(boundary_radius[index], float(normalized))
+        nonzero = boundary_radius > 0
+        if np.any(nonzero):
+            fallback = float(np.mean(boundary_radius[nonzero]))
+            boundary_radius[~nonzero] = fallback
+        full_spectrum = np.abs(np.fft.rfft(boundary_radius))
+        spectrum = full_spectrum[1:9] / max(1e-12, float(full_spectrum[0]))
+        return np.concatenate(
+            (
+                radial,
+                spectrum,
+                np.asarray(
+                    [
+                        anisotropy,
+                        fill_ratio,
+                        mean_signal,
+                        perimeter_ratio,
+                        float(np.std(boundary_radius)),
+                        1.0,
+                    ]
+                ),
+            )
+        )
+
+    def _digest_distance(self, first: np.ndarray, second: np.ndarray) -> float:
+        return float(np.mean((self._digest_signature(first) - self._digest_signature(second)) ** 2))
 
     def _information_coordinates(self, vector: np.ndarray) -> tuple[float, float]:
         """Project retinal input into a deterministic 2-D information habitat."""
@@ -492,6 +582,98 @@ class ColonyMindEngine:
                 )
                 cell.redundancy = math.exp(-nearest / 0.012)
 
+    def _memory_members(self, winner: Organism) -> list[str]:
+        if winner.colony_id and winner.colony_id in self.colonies:
+            return sorted(
+                member_id
+                for member_id in self.colonies[winner.colony_id].member_ids
+                if member_id in self.organisms
+            )
+        return [winner.id]
+
+    def _consolidate_or_recall_memory(
+        self,
+        winner: Organism,
+        vector: np.ndarray,
+        error: float,
+    ) -> MemoryEngram | None:
+        """Turn repeatedly digested information into a label-free persistent memory."""
+        members = self._memory_members(winner)
+        member_set = set(members)
+        candidates = [
+            memory for memory in self.memories.values() if set(memory.member_ids) == member_set
+        ]
+        existing = min(
+            candidates,
+            key=lambda memory: self._distance(vector, memory.prototype),
+            default=None,
+        )
+        memory_distance = self._digest_distance(vector, np.asarray(existing.prototype)) if existing else 1.0
+        if error <= self.digestion_error:
+            winner.digestion_evidence += 1.0
+        else:
+            winner.digestion_evidence = max(0.0, winner.digestion_evidence - 0.18)
+
+        if (
+            existing
+            and error <= self.memory_recall_error
+            and memory_distance <= self.digest_cluster_distance
+        ):
+            existing.last_recalled_step = self.step_count
+            existing.recall_count += 1
+            existing.digestion_count += int(error <= self.digestion_error)
+            existing.mean_error = 0.96 * existing.mean_error + 0.04 * error
+            existing.stability = min(1.0, existing.stability + 0.006)
+            prototype = np.asarray(existing.prototype)
+            existing.prototype = np.clip(
+                prototype + 0.004 * (vector - prototype),
+                0.0,
+                1.0,
+            ).round(4).tolist()
+            if existing.recall_count % 100 == 0:
+                self._event(
+                    "MEMORY_RECALLED",
+                    existing.id,
+                    ["FAMILIAR_INFORMATION_FULLY_DIGESTED", "ZERO_GROWTH_FOOD"],
+                    {"error": error, "recalls": existing.recall_count},
+                )
+            return existing
+
+        if winner.digestion_evidence < self.memory_evidence_required:
+            return None
+
+        member_prototypes = [
+            self.organisms[member_id].specialization
+            for member_id in members
+            if member_id in self.organisms
+        ]
+        prototype = np.mean(member_prototypes, axis=0) if member_prototypes else vector
+        memory = MemoryEngram(
+            id=self._next_id("memory"),
+            member_ids=members,
+            prototype=np.asarray(prototype).round(4).tolist(),
+            created_step=self.step_count,
+            last_recalled_step=self.step_count,
+            recall_count=1,
+            digestion_count=round(winner.digestion_evidence),
+            mean_error=error,
+            stability=min(1.0, winner.digestion_evidence / (self.memory_evidence_required * 2.0)),
+        )
+        self.memories[memory.id] = memory
+        for member_id in members:
+            if member_id in self.organisms and memory.id not in self.organisms[member_id].memory_ids:
+                self.organisms[member_id].memory_ids.append(memory.id)
+        if winner.colony_id and winner.colony_id in self.colonies:
+            self.colonies[winner.colony_id].state = "memory"
+        winner.digestion_evidence = 0.0
+        self._event(
+            "MEMORY_CONSOLIDATED",
+            memory.id,
+            ["REPEATED_LOW_RESIDUAL", "INFORMATION_FULLY_DIGESTED", "UNLABELED_COMMUNITY_MEMORY"],
+            {"members": len(members), "meanError": error, "stability": memory.stability},
+        )
+        return memory
+
     def _archive_if_safe(self) -> None:
         if len(self.organisms) <= 1:
             return
@@ -595,29 +777,64 @@ class ColonyMindEngine:
         second.colony_id = colony.id
         self._event("COLONY_FORMED", colony.id, ["PERSISTENT_COMPLEMENTARY_SPECIALIZATION", "POSITIVE_JOINT_VALUE"], {"synergy": synergy, "diversity": diversity})
 
-    def _structural_review(self, vector: np.ndarray, loss: float) -> None:
-        processing = self._processing_organisms()
-        best = max(processing, key=lambda org: org.utility, default=None)
-        novelty = min(
-            (self._distance(vector, organism.specialization) for organism in self.organisms.values()),
-            default=1.0,
-        )
-        if loss > 0.052:
-            self.high_residual_streak += 1
-        else:
-            self.high_residual_streak = max(0, self.high_residual_streak - 1)
-        novel_regime = novelty > 0.045 and len(processing) < 3 and self.step_count >= 24
-        capacity_available = (
-            len(processing) < self.max_processing_organisms
-            and len(self.organisms) < self.max_resident_organisms
-        )
-        if (self.high_residual_streak >= 3 or novel_regime) and capacity_available:
-            reason = "NOVEL_UNLABELED_VISUAL_REGIME" if novel_regime else "PERSISTENT_UNSERVED_VISUAL_RESIDUAL"
-            self._create_organism(vector, reason, best)
-            self.high_residual_streak = 0
-        else:
-            if best and loss > 0.025 and len(best.cells) < 8:
-                self._create_cell(best, vector, "LOCAL_RESIDUAL_SPECIALIZATION")
+    def _structural_review(
+        self,
+        vector: np.ndarray,
+        loss: float,
+        winner: Organism,
+        food_amount: float,
+    ) -> None:
+        if food_amount <= 0.05:
+            # A digested sample contains no structural food. Maintenance may
+            # still consolidate relationships, but it cannot grow the network.
+            self._update_cell_redundancy()
+            self._create_colony_if_useful()
+            self._archive_if_safe()
+            return
+        residuals = self.residual_vectors.setdefault(winner.id, [])
+
+        # Growth requires a repeated cluster of undigested information. A single
+        # noisy or transformed sample cannot create permanent structure.
+        if winner.food_evidence >= self.residual_support_required and residuals:
+            anchor = residuals[-1]
+            cluster = [
+                residual
+                for residual in residuals
+                if self._digest_distance(anchor, residual) <= self.digest_cluster_distance
+            ]
+            if len(cluster) >= 3:
+                candidate = np.mean(cluster, axis=0)
+                organism_novelty = min(
+                    (
+                        self._distance(candidate, organism.specialization)
+                        for organism in self.organisms.values()
+                    ),
+                    default=1.0,
+                )
+                cell_novelty = min(
+                    (
+                        self._distance(candidate, self.cells[cell_id].prototype)
+                        for cell_id in winner.cells
+                        if cell_id in self.cells
+                    ),
+                    default=1.0,
+                )
+                if organism_novelty >= self.organism_birth_novelty:
+                    self._create_organism(
+                        candidate,
+                        "PERSISTENT_UNDIGESTED_INFORMATION_CLUSTER",
+                        winner,
+                    )
+                    winner.food_evidence = 0.0
+                    self.residual_vectors[winner.id] = []
+                elif cell_novelty >= self.cell_birth_novelty:
+                    self._create_cell(
+                        winner,
+                        candidate,
+                        "PERSISTENT_LOCAL_INFORMATION_FOOD",
+                    )
+                    winner.food_evidence = 0.0
+                    self.residual_vectors[winner.id] = []
         self._update_cell_redundancy()
         self._create_colony_if_useful()
         self._archive_if_safe()
@@ -643,21 +860,48 @@ class ColonyMindEngine:
                 self.loss_history.append(0.0)
                 continue
             available = self._processing_organisms()
-            processing = sorted(
-                available,
-                key=lambda organism: self._distance(vector, organism.specialization),
-            )[: self.response_committee_size]
-            self.current_committee_ids = [organism.id for organism in processing]
-            responses = [(org, *self._organism_response(org, vector)[:2]) for org in processing]
-            responses.sort(key=lambda row: row[1], reverse=True)
-            winner, winner_activation, reconstruction = responses[0]
-            self._move_organisms(responses, information_patch, winner.id)
-            information_patch["consumedBy"] = winner.id
-            information_patch["amount"] = round(
-                max(0.06, information_patch["amount"] * (1.0 - winner_activation * 0.72)),
-                3,
+            ranked = sorted(
+                (
+                    (organism, self._distance(vector, organism.specialization))
+                    for organism in available
+                ),
+                key=lambda item: item[1],
             )
+            best_routing_distance = ranked[0][1]
+            processing = [
+                organism
+                for organism, distance in ranked
+                if distance <= best_routing_distance + self.committee_relevance_margin
+            ]
+            self.current_committee_ids = [organism.id for organism in processing]
+            responses = [(org, *self._organism_response(org, vector)) for org in processing]
+            responses.sort(key=lambda row: row[1], reverse=True)
+            winner, winner_activation, reconstruction, winner_cells = responses[0]
+            self._move_organisms(
+                [(organism, activation, response) for organism, activation, response, _cells in responses],
+                information_patch,
+                winner.id,
+            )
+            information_patch["consumedBy"] = winner.id
             error = float(np.mean((vector - reconstruction) ** 2))
+            memory = self._consolidate_or_recall_memory(winner, vector, error)
+            food_amount = 0.0 if memory else min(
+                1.0,
+                max(0.0, (error - self.digestion_error) / 0.075),
+            )
+            information_patch["amount"] = round(food_amount, 3)
+            information_patch["digested"] = food_amount <= 0.05
+            information_patch["memoryId"] = memory.id if memory else None
+            self.total_information_food += food_amount
+            self.digested_samples += int(food_amount <= 0.05)
+            if food_amount > 0.05:
+                winner.food_evidence = 0.985 * winner.food_evidence + food_amount
+            else:
+                winner.food_evidence *= 0.94
+            if food_amount > 0.20:
+                residuals = self.residual_vectors.setdefault(winner.id, [])
+                residuals.append(vector.copy())
+                self.residual_vectors[winner.id] = residuals[-48:]
             previous = self.previous_loss if self.previous_loss is not None else error
             improvement = max(-0.08, min(0.08, previous - error))
             self.previous_loss = error
@@ -674,8 +918,11 @@ class ColonyMindEngine:
                 and self.step_count - winner.last_reactivated_step <= 500
             )
             plasticity = 1.0 if winner.lifecycle_state == "young" else (0.55 if recently_reactivated else 0.35)
-            for cell_id in winner.cells:
-                cell = self.cells[cell_id]
+            # Local competition is what lets cells become different neurons.
+            # Only the best responding cell changes; the others retain their
+            # specialization and can win on future information.
+            learning_cells = sorted(winner_cells, key=lambda item: item[1], reverse=True)[:1]
+            for cell, activation in learning_cells:
                 activation = math.exp(-self._distance(vector, cell.prototype) / 0.06)
                 cell.activation = activation
                 cell.age_steps += 1
@@ -693,7 +940,7 @@ class ColonyMindEngine:
             self.loss_history.append(error)
             self.loss_history = self.loss_history[-120:]
             if self.step_count % 12 == 0:
-                self._structural_review(vector, error)
+                self._structural_review(vector, error, winner, food_amount)
         return self.state()
 
     def _state_payload(self) -> dict[str, Any]:
@@ -722,6 +969,9 @@ class ColonyMindEngine:
                 "lowValueSteps": organism.low_value_steps,
                 "dormantSince": organism.dormant_since,
                 "reactivations": organism.reactivations,
+                "foodEvidence": round(organism.food_evidence, 4),
+                "digestionEvidence": round(organism.digestion_evidence, 4),
+                "memoryIds": organism.memory_ids,
                 "x": round(organism.x, 2),
                 "y": round(organism.y, 2),
                 "heading": round(organism.heading, 3),
@@ -740,9 +990,17 @@ class ColonyMindEngine:
                 "activeOrganisms": len(processing),
                 "residentOrganisms": len(self.organisms),
                 "dormantOrganisms": len(dormant),
+                "consolidatedMemories": len(self.memories),
+                "digestedSamples": self.digested_samples,
+                "totalInformationFood": round(self.total_information_food, 4),
                 "activeColonies": len(self.colonies),
                 "activeSynapsesProxy": max(0, sum(max(0, len(org.cells) - 1) for org in processing)),
-                "memoryBytesProxy": len(self.cells) * self.vector_size * 8 + len(self.organisms) * 192 + len(self.colonies) * 144,
+                "memoryBytesProxy": (
+                    len(self.cells) * self.vector_size * 8
+                    + len(self.organisms) * 192
+                    + len(self.colonies) * 144
+                    + len(self.memories) * self.vector_size * 8
+                ),
                 "resourceScore": round(
                     sum(org.utility for org in processing)
                     - 0.00005 * sum(len(org.cells) for org in dormant),
@@ -764,6 +1022,20 @@ class ColonyMindEngine:
             ],
             "organisms": organisms,
             "colonies": [asdict(colony) for colony in self.colonies.values()],
+            "memories": [
+                {
+                    "id": memory.id,
+                    "member_ids": memory.member_ids,
+                    "created_step": memory.created_step,
+                    "last_recalled_step": memory.last_recalled_step,
+                    "recall_count": memory.recall_count,
+                    "digestion_count": memory.digestion_count,
+                    "mean_error": round(memory.mean_error, 5),
+                    "stability": round(memory.stability, 5),
+                    "state": memory.state,
+                }
+                for memory in self.memories.values()
+            ],
             "informationPatches": self.information_patches,
             "events": list(reversed(self.events[-12:])),
         }
@@ -778,6 +1050,7 @@ class ColonyMindEngine:
             "cells": [asdict(cell) for cell in self.cells.values()],
             "organisms": [asdict(organism) for organism in self.organisms.values()],
             "colonies": [asdict(colony) for colony in self.colonies.values()],
+            "memories": [asdict(memory) for memory in self.memories.values()],
         }, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(compact.encode()).hexdigest()[:12]
 
@@ -1032,6 +1305,7 @@ class ColonyMindEngine:
         dormant_organisms = [
             organism for organism in resident_organisms if organism.lifecycle_state == "dormant"
         ]
+        consolidated_memories = list(self.memories.values())
         active_colonies = list(self.colonies.values())
         cells_created = self.event_totals.get("CELL_BIRTH", 0)
         organisms_created = self.event_totals.get("ORGANISM_BIRTH", 0)
@@ -1077,11 +1351,16 @@ class ColonyMindEngine:
                 "evidence": f"Recent loss increased by {loss_change:.5f} across comparison windows.",
                 "action": "Reduce prototype learning rate or add a replay buffer for previously learned visual regimes.",
             })
-        if processing_organisms and len(active_cells) / len(processing_organisms) >= 7.0:
+        mean_redundancy = (
+            float(np.mean([cell.redundancy for cell in resident_cells]))
+            if resident_cells
+            else 0.0
+        )
+        if mean_redundancy >= 0.80:
             recommendations.append({
                 "priority": "medium",
-                "evidence": "Mean cells per organism is near the current capacity limit.",
-                "action": "Compare cell splitting against organism birth using multi-seed resource-score ablations.",
+                "evidence": f"Resident cell redundancy is {mean_redundancy:.1%}.",
+                "action": "Require stronger residual-cluster novelty before adding another cell.",
             })
         if len(processing_organisms) >= 2 and not active_colonies:
             recommendations.append({
@@ -1103,7 +1382,7 @@ class ColonyMindEngine:
             })
 
         return {
-            "schema": "colonymind.performance-report.v3",
+            "schema": "colonymind.performance-report.v4",
             "generatedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "simulation": {
                 "seed": self.seed,
@@ -1121,6 +1400,8 @@ class ColonyMindEngine:
                     "resourceScore": state["metrics"]["resourceScore"],
                     "activeSynapsesProxy": state["metrics"]["activeSynapsesProxy"],
                     "memoryBytesProxy": state["metrics"]["memoryBytesProxy"],
+                    "digestedSamples": self.digested_samples,
+                    "totalInformationFood": round(self.total_information_food, 5),
                 },
                 "cells": {
                     "active": len(active_cells),
@@ -1154,7 +1435,11 @@ class ColonyMindEngine:
                         "minimumLifespan": self.minimum_lifespan,
                         "dormancyAfterInactive": self.dormancy_after_inactive,
                         "archiveAfterInactive": self.archive_after_inactive,
-                        "responseCommitteeSize": self.response_committee_size,
+                        "growthLimits": None,
+                        "committeeRule": "all organisms within the relevance margin of the best router",
+                        "committeeRelevanceMargin": self.committee_relevance_margin,
+                        "digestionError": self.digestion_error,
+                        "residualSupportRequired": self.residual_support_required,
                         "replayCapacity": self.replay_capacity,
                     },
                     "residents": [
@@ -1178,6 +1463,25 @@ class ColonyMindEngine:
                     "meanSynergy": round(float(np.mean([colony.synergy for colony in active_colonies])), 6) if active_colonies else 0.0,
                     "meanMembers": round(float(np.mean([len(colony.member_ids) for colony in active_colonies])), 3) if active_colonies else 0.0,
                     "details": [asdict(colony) for colony in active_colonies],
+                },
+                "memories": {
+                    "consolidated": len(consolidated_memories),
+                    "totalRecalls": sum(memory.recall_count for memory in consolidated_memories),
+                    "meanStability": round(float(np.mean([memory.stability for memory in consolidated_memories])), 5) if consolidated_memories else 0.0,
+                    "details": [
+                        {
+                            "id": memory.id,
+                            "memberIds": memory.member_ids,
+                            "createdStep": memory.created_step,
+                            "lastRecalledStep": memory.last_recalled_step,
+                            "recallCount": memory.recall_count,
+                            "digestionCount": memory.digestion_count,
+                            "meanError": round(memory.mean_error, 6),
+                            "stability": round(memory.stability, 6),
+                            "state": memory.state,
+                        }
+                        for memory in consolidated_memories
+                    ],
                 },
                 "structuralAdaptations": {
                     "definition": "Mutation metrics represent structural adaptation events, not a genetic mutation operator.",
@@ -1204,6 +1508,7 @@ class ColonyMindEngine:
                 "Structural mutations are adaptation events; the current engine has no genetic mutation operator.",
                 "Dormancy reduces prototype updates but retains resident prototype memory; memoryBytesProxy therefore includes dormant organisms.",
                 "Archival requires long inactivity, sustained low value, redundancy, and non-positive replay-buffer ablation.",
+                "There are no fixed growth-count limits; growth is gated by persistent undigested residual evidence.",
                 "Recommendations are deterministic heuristics for experimentation, not proof of causal improvement.",
                 "The current hidden evaluation reports purity only; standard NMI and ARI remain planned.",
             ],

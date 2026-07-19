@@ -17,6 +17,7 @@ complex visual patterns and eventually opt-in camera streams.
 - [Build Week scope](docs/BUILD_WEEK_SCOPE.md)
 - [Repository and deployment workflow](docs/workflow.md)
 - [P1 lifecycle benchmark](docs/experiments/p1-lifecycle-benchmark.md)
+- [Open-ended growth benchmark](docs/experiments/open-ended-growth.md)
 - [Devpost thumbnail](assets/colonymind-devpost-thumbnail.png)
 
 ## Run the benchmark locally
@@ -46,13 +47,15 @@ Open `http://127.0.0.1:5173`. Docker Compose serves the same application on
 
 ## Current status
 
-The current P1 lifecycle build includes the geometry generator, label-free
+The current open-ended memory build includes the geometry generator, label-free
 feature learning, dynamic organisms, colony formation, resource proxies,
 deterministic state hashes, global organism aging, maturation, low-compute
 dormancy, similarity-triggered reactivation, conservative evidence-based archival,
+growth without fixed population or cell-count ceilings, local cell competition,
+information-food gating, and label-free consolidated community memories,
 hidden-label read-only evaluation, a draw-your-own retinal probe with an external
 geometric auditor, read-only ablation, and a downloadable JSON performance
-report with structural-change and audit evidence. The planned GPT-5.6
+report v4 with structural-change, digestion, memory, and audit evidence. The planned GPT-5.6
 curriculum/explanation layer and camera input are deliberately not represented
 as implemented features yet.
 

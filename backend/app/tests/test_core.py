@@ -56,7 +56,7 @@ def test_evaluators_do_not_change_the_next_learning_steps() -> None:
 def test_novel_unlabeled_stimuli_can_form_a_colony() -> None:
     engine = ColonyMindEngine(seed=20260718)
     state = engine.step(240)
-    assert state["metrics"]["activeOrganisms"] >= 2
+    assert state["metrics"]["residentOrganisms"] >= 2
     assert state["metrics"]["activeColonies"] >= 1
     organism_ids = {organism["id"] for organism in state["organisms"]}
     assert all(set(colony["member_ids"]).issubset(organism_ids) for colony in state["colonies"])
@@ -83,13 +83,49 @@ def test_organisms_mature_without_early_archival() -> None:
     assert state["metrics"]["residentOrganisms"] == engine.event_totals["ORGANISM_BIRTH"]
 
 
-def test_response_committee_bounds_active_compute_without_deleting_memory() -> None:
+def test_response_committee_is_relevance_driven_without_growth_caps() -> None:
     engine = ColonyMindEngine(seed=20260718)
     state = engine.step(240)
 
-    assert state["metrics"]["activeOrganisms"] <= engine.response_committee_size
     assert state["metrics"]["activeOrganisms"] <= state["metrics"]["residentOrganisms"]
     assert state["metrics"]["activeCells"] <= state["metrics"]["residentCells"]
+    assert not hasattr(engine, "max_processing_organisms")
+    assert not hasattr(engine, "max_resident_organisms")
+    assert not hasattr(engine, "response_committee_size")
+
+
+def test_cell_and_organism_counts_have_no_fixed_growth_ceiling() -> None:
+    engine = ColonyMindEngine(seed=11)
+    vector, _public, _label = engine._sample()
+    organism = engine._create_organism(vector, "OPEN_GROWTH_TEST")
+    for _index in range(12):
+        engine._create_cell(organism, vector, "OPEN_GROWTH_TEST")
+    for _index in range(18):
+        engine._create_organism(vector, "OPEN_GROWTH_TEST", organism)
+
+    assert len(organism.cells) == 13
+    assert len(engine.organisms) == 19
+
+
+def test_fully_digested_information_becomes_memory_and_stops_growth() -> None:
+    engine = ColonyMindEngine(seed=13)
+    engine.step(1)
+    organism = next(iter(engine.organisms.values()))
+    vector = np.asarray(organism.specialization)
+    organism.digestion_evidence = engine.memory_evidence_required
+    memory = engine._consolidate_or_recall_memory(organism, vector, 0.01)
+    cells_before = len(engine.cells)
+    organisms_before = len(engine.organisms)
+    organism.food_evidence = engine.residual_support_required + 10.0
+    engine.residual_vectors[organism.id] = [vector.copy() for _index in range(8)]
+
+    engine._structural_review(vector, 0.01, organism, 0.0)
+
+    assert memory is not None
+    assert len(engine.memories) == 1
+    assert len(engine.cells) == cells_before
+    assert len(engine.organisms) == organisms_before
+    assert engine.event_totals["MEMORY_CONSOLIDATED"] == 1
 
 
 def test_dormant_memory_reactivates_for_familiar_information() -> None:
@@ -234,7 +270,7 @@ def test_performance_report_contains_structure_and_drawing_evidence() -> None:
     before = engine.state_hash()
     report = engine.report()
 
-    assert report["schema"] == "colonymind.performance-report.v3"
+    assert report["schema"] == "colonymind.performance-report.v4"
     assert report["simulation"]["stateHash"] == before == engine.state_hash()
     assert report["performance"]["cells"]["resident"] == len(engine.cells)
     assert report["performance"]["cells"]["active"] <= len(engine.cells)
@@ -242,6 +278,8 @@ def test_performance_report_contains_structure_and_drawing_evidence() -> None:
     assert report["performance"]["population"]["activeOrganisms"] <= len(engine.organisms)
     assert report["performance"]["population"]["residentOrganisms"] == len(engine.organisms)
     assert report["performance"]["population"]["lifecyclePolicy"]["minimumLifespan"] == 5_000
+    assert report["performance"]["population"]["lifecyclePolicy"]["growthLimits"] is None
+    assert "memories" in report["performance"]
     assert report["performance"]["colonies"]["active"] == len(engine.colonies)
     assert report["performance"]["structuralAdaptations"]["byType"]["CELL_BIRTH"] >= 1
     assert report["performance"]["drawAndAudit"]["trials"] == 1

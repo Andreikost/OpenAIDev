@@ -4,9 +4,6 @@ import hashlib
 from pathlib import Path
 from types import SimpleNamespace
 
-import pytest
-from pydantic import ValidationError
-
 from app.experiments import (
     BASELINE_CORE_SHA256,
     BASELINE_ID,
@@ -85,18 +82,37 @@ def test_experiment_designer_uses_structured_outputs_without_tools() -> None:
     assert usage == {"inputTokens": 500, "outputTokens": 200, "totalTokens": 700}
 
 
-def test_protocol_rejects_unbounded_vps_compute() -> None:
-    with pytest.raises(ValidationError):
-        ExperimentProtocol.model_validate(
-            {
-                "experimentType": "multi_seed_replication",
-                "seeds": [1, 2, 3, 4, 5],
-                "trainingSteps": 2400,
-                "samplesPerShape": 24,
-                "nuisanceProfile": "mixed",
-                "checkpoints": [],
-            }
-        )
+def test_protocol_normalizes_explanatory_checkpoints_and_vps_compute() -> None:
+    protocol = ExperimentProtocol.model_validate(
+        {
+            "experimentType": "multi_seed_replication",
+            "seeds": [1, 2, 3, 4, 5],
+            "trainingSteps": 2400,
+            "samplesPerShape": 24,
+            "nuisanceProfile": "mixed",
+            "checkpoints": [240],
+        }
+    )
+
+    assert protocol.trainingSteps == 1440
+    assert protocol.checkpoints == []
+    assert len(protocol.seeds) * protocol.trainingSteps == 7200
+
+
+def test_learning_curve_receives_safe_default_checkpoints() -> None:
+    protocol = ExperimentProtocol.model_validate(
+        {
+            "experimentType": "learning_curve",
+            "seeds": [17, 17],
+            "trainingSteps": 240,
+            "samplesPerShape": 8,
+            "nuisanceProfile": "baseline",
+            "checkpoints": [],
+        }
+    )
+
+    assert len(protocol.seeds) == 2
+    assert protocol.checkpoints == [120, 240]
 
 
 def test_isolated_runner_reports_nmi_ari_and_preserves_evaluator_state() -> None:

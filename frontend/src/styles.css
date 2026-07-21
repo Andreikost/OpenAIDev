@@ -64,3 +64,49 @@
 @media (max-width: 900px) { .draw-lab-grid { grid-template-columns: 1fr 1fr; }.draw-stage { grid-row: span 2; }.auditor-result { grid-column: 2; } }
 @media (max-width: 680px) { .draw-lab-grid { grid-template-columns: 1fr; }.draw-stage, .auditor-result { grid-column: auto; grid-row: auto; }.draw-stage, .probe-result { min-height: 0; } }
 @media (max-width: 680px) { nav { height: auto; min-height: 76px; padding: 10px 0; }.nav-actions { flex-direction: column; align-items: stretch; }.report-button, nav .outline { padding: 7px 9px; font-size: 9px; } }
+
+/* The 3D scene is a read-only projection of the live backend state. */
+.workspace { grid-template-columns: .7fr 1.75fr .7fr; }
+.ecosystem { min-height: 680px; }
+.architecture-stage { position: relative; height: 548px; margin-top: 10px; overflow: hidden; border: 1px solid #74dfff24; border-radius: 12px; background: radial-gradient(circle at 50% 42%, #123957 0, #071522 48%, #02070d 100%); box-shadow: inset 0 0 80px #0c4b6a2e, 0 22px 60px #0007; isolation: isolate; }
+.architecture-stage::before { content: ''; position: absolute; z-index: 1; inset: 0; pointer-events: none; background: linear-gradient(180deg, #68dcff09, transparent 24%, transparent 74%, #02070dcc), radial-gradient(circle at 50% 42%, transparent 30%, #02070d77 100%); }
+.architecture-stage:fullscreen { width: 100vw; height: 100vh; border: 0; border-radius: 0; background: radial-gradient(circle at 50% 42%, #123957 0, #071522 45%, #02070d 100%); }
+.architecture-viewport { position: absolute; inset: 0; }
+.architecture-webgl { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+.architecture-webgl:active { cursor: grabbing; }
+.architecture-toolbar { position: absolute; z-index: 4; top: 12px; left: 12px; right: 12px; display: flex; gap: 6px; flex-wrap: wrap; pointer-events: none; }
+.architecture-toolbar button { pointer-events: auto; padding: 7px 9px; border-color: #80e8ff2e; border-radius: 7px; background: #071521d9; color: #a9c7d9; font: 9px 'DM Mono', monospace; letter-spacing: .35px; backdrop-filter: blur(10px); }
+.architecture-toolbar button.active { border-color: #6edfff80; background: #10354be8; color: #8deaff; box-shadow: inset 0 0 14px #58ddff1a; }
+.architecture-layer-map { position: absolute; z-index: 3; top: 62px; right: 13px; display: grid; gap: 6px; pointer-events: none; }
+.architecture-layer-map span { display: grid; grid-template-columns: 7px auto auto; align-items: center; gap: 7px; min-width: 126px; padding: 6px 8px; border: 1px solid #ffffff10; border-radius: 6px; background: #04101bbb; color: #8da6b9; font: 8px 'DM Mono', monospace; letter-spacing: .65px; backdrop-filter: blur(8px); }
+.architecture-layer-map span i { width: 6px; height: 6px; border-radius: 50%; box-shadow: 0 0 8px currentColor; }
+.architecture-layer-map span b { margin-left: auto; color: #eaf7ff; font-weight: 500; }
+.architecture-layer-map .memory-layer i { color: #79e6b0; background: #79e6b0; }
+.architecture-layer-map .organism-layer i { color: #64d9ff; background: #64d9ff; }
+.architecture-layer-map .micro-layer i { color: #ffb45c; background: #ffb45c; border-radius: 2px; }
+.architecture-instructions { position: absolute; z-index: 3; right: 13px; bottom: 12px; color: #7f9aaf; font: 8px 'DM Mono', monospace; letter-spacing: .35px; pointer-events: none; text-shadow: 0 1px 8px #000; }
+.architecture-selection { position: absolute; z-index: 4; left: 12px; bottom: 12px; display: grid; grid-template-columns: 11px auto auto; align-items: center; gap: 9px; max-width: min(72%, 420px); padding: 8px 10px; border: 1px solid #88e7ff35; border-radius: 8px; background: #06131ee8; box-shadow: 0 8px 30px #0008, inset 0 0 18px #5bdfff0b; backdrop-filter: blur(12px); pointer-events: none; }
+.architecture-selection > i { width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 10px currentColor; }
+.architecture-selection span { min-width: 0; color: #a5bbcc; font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.architecture-selection span b { margin-right: 8px; color: #effaff; font: 500 11px 'DM Mono', monospace; }
+.architecture-selection em { color: #79e6b0; font: 8px 'DM Mono', monospace; font-style: normal; white-space: nowrap; }
+.architecture-empty, .architecture-error { position: absolute; z-index: 3; inset: 0; display: grid; place-content: center; gap: 7px; color: #67849b; text-align: center; font: 10px 'DM Mono', monospace; letter-spacing: .7px; pointer-events: none; }
+.architecture-empty b { color: #88a5ba; font-weight: 500; }
+.architecture-empty span { font: 10px Manrope, sans-serif; letter-spacing: 0; }
+.architecture-error { color: #ffba8e; }
+.architecture-legend { justify-content: center; }
+
+@media (max-width: 1050px) {
+  .workspace { grid-template-columns: 1fr 1fr; }
+  .ecosystem { min-height: 670px; }
+}
+@media (max-width: 680px) {
+  .architecture-stage { height: 440px; }
+  .ecosystem { min-height: 570px; }
+  .architecture-toolbar { gap: 4px; }
+  .architecture-toolbar button { padding: 6px 7px; font-size: 8px; }
+  .architecture-layer-map { top: 93px; right: 8px; }
+  .architecture-layer-map span { min-width: 108px; padding: 5px 6px; font-size: 7px; }
+  .architecture-instructions { display: none; }
+  .architecture-selection { right: 8px; left: 8px; bottom: 8px; max-width: none; }
+}

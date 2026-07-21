@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from './api';
+import { LivingArchitecture3D } from './LivingArchitecture3D';
 import type { Ablation, DrawingAudit, Evaluation, Organism, RetinalStimulus, State } from './types';
 
 const INITIAL_STATE: State = {
@@ -38,91 +39,6 @@ function Retina({ stimulus }: { stimulus: RetinalStimulus | null }) {
 
 function Metric({ label, value, hint }: { label: string; value: string | number; hint?: string }) {
   return <article className="metric"><span>{label}</span><strong>{value}</strong>{hint && <small>{hint}</small>}</article>;
-}
-
-function LivingArchitecture({ state, selectedId, onSelect }: { state: State; selectedId: string | null; onSelect: (id: string) => void }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    let animation = 0;
-    const draw = (now: number) => {
-      const canvas = canvasRef.current;
-      const context = canvas?.getContext('2d');
-      if (!canvas || !context) return;
-      const box = canvas.getBoundingClientRect();
-      const density = window.devicePixelRatio || 1;
-      const pixelWidth = Math.max(1, Math.round(box.width * density));
-      const pixelHeight = Math.max(1, Math.round(box.height * density));
-      if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) { canvas.width = pixelWidth; canvas.height = pixelHeight; }
-      context.setTransform(canvas.width / 100, 0, 0, canvas.height / 100, 0, 0);
-      context.clearRect(0, 0, 100, 100);
-      const background = context.createRadialGradient(50, 48, 4, 50, 48, 72);
-      background.addColorStop(0, '#0d2a3c'); background.addColorStop(0.55, '#071724'); background.addColorStop(1, '#030b13');
-      context.fillStyle = background; context.fillRect(0, 0, 100, 100);
-      context.lineWidth = 0.12; context.strokeStyle = 'rgba(112,218,255,.075)';
-      for (let grid = 10; grid < 100; grid += 10) { context.beginPath(); context.moveTo(grid, 0); context.lineTo(grid, 100); context.stroke(); context.beginPath(); context.moveTo(0, grid); context.lineTo(100, grid); context.stroke(); }
-
-      state.informationPatches.slice(-8).forEach((patch, index) => {
-        const age = Math.max(0, state.stepCount - patch.createdStep);
-        const pulse = 1 + Math.sin(now * 0.006 + index) * 0.22;
-        const alpha = Math.max(0.12, 0.85 - age / 22);
-        context.globalAlpha = alpha * .72;
-        context.strokeStyle = patch.digested ? '#78e7ad' : (patch.consumedBy ? '#5cd7ff' : '#ffc36d');
-        context.fillStyle = patch.digested ? 'rgba(70,220,145,.08)' : (patch.consumedBy ? 'rgba(85,215,255,.12)' : 'rgba(255,187,93,.2)');
-        context.lineWidth = .18;
-        const patchRadius = (.45 + patch.amount * 1.1) * pulse;
-        context.beginPath(); context.arc(patch.x, patch.y, patchRadius, 0, Math.PI * 2); context.fill(); context.stroke();
-        context.beginPath(); context.moveTo(patch.x - .7, patch.y); context.lineTo(patch.x + .7, patch.y); context.moveTo(patch.x, patch.y - .7); context.lineTo(patch.x, patch.y + .7); context.stroke();
-      });
-      context.globalAlpha = 1;
-
-      state.colonies.forEach((colony) => {
-        const members = state.organisms.filter((organism) => colony.member_ids.includes(organism.id));
-        if (!members.length) return;
-        const centerX = members.reduce((sum, organism) => sum + organism.x, 0) / members.length;
-        const centerY = members.reduce((sum, organism) => sum + organism.y, 0) / members.length;
-        const selectedColony = members.some((organism) => organism.id === selectedId);
-        context.strokeStyle = selectedColony ? 'rgba(198,167,255,.86)' : 'rgba(177,132,255,.32)'; context.lineWidth = selectedColony ? .34 : .2; context.setLineDash([1.0, .85]);
-        members.forEach((organism) => { context.beginPath(); context.moveTo(centerX, centerY); context.lineTo(organism.x, organism.y); context.stroke(); });
-        const colonyRadius = 4.5 + Math.sqrt(members.length) * 2 + Math.sin(now * .002) * .3;
-        context.beginPath(); context.arc(centerX, centerY, colonyRadius, 0, Math.PI * 2); context.stroke(); context.setLineDash([]);
-        if (selectedColony) { context.fillStyle = '#d7c5ff'; context.font = "1.8px 'DM Mono', monospace"; context.textAlign = 'center'; context.fillText(colony.id, centerX, centerY - colonyRadius - 1.3); }
-      });
-
-      const cellCounts = state.cells.reduce<Record<string, number>>((counts, cell) => ({ ...counts, [cell.organism_id]: (counts[cell.organism_id] ?? 0) + 1 }), {});
-      state.organisms.forEach((organism, organismIndex) => {
-        const dormant = organism.lifecycleState === 'dormant';
-        const motion = dormant ? .08 : .55;
-        const x = organism.x + Math.sin(now * .0017 + organismIndex * 2.1) * motion;
-        const y = organism.y + Math.cos(now * .0014 + organismIndex * 1.7) * motion;
-        const cells = cellCounts[organism.id] ?? 1;
-        const radius = (1.15 + Math.sqrt(cells) * .32) * (dormant ? .82 : 1);
-        context.strokeStyle = organism.color; context.globalAlpha = dormant ? .08 : .2; context.lineWidth = .28;
-        context.beginPath(); context.moveTo(x, y); context.lineTo(x - Math.cos(organism.heading) * (3 + radius), y - Math.sin(organism.heading) * (3 + radius)); context.stroke();
-        context.globalAlpha = dormant ? .035 : .1; context.fillStyle = organism.color; context.beginPath(); context.arc(x, y, radius * 1.8, 0, Math.PI * 2); context.fill();
-        context.globalAlpha = dormant ? .34 : 1; context.fillStyle = organism.color; context.beginPath(); context.arc(x, y, radius, 0, Math.PI * 2); context.fill();
-        context.strokeStyle = selectedId === organism.id ? '#ffffff' : organism.color; context.lineWidth = selectedId === organism.id ? .5 : .16; context.stroke();
-        context.setLineDash(dormant ? [.45, .45] : []); context.beginPath(); context.arc(x, y, radius + .7, 0, Math.PI * 2); context.stroke(); context.setLineDash([]);
-        for (let cell = 0; cell < Math.min(cells, 8); cell += 1) { const angle = now * (dormant ? .00012 : .0012) * (cell % 2 ? -1 : 1) + cell * 2.399 + organismIndex; const orbit = radius + 1.05 + (cell % 2) * .35; context.fillStyle = organism.color; context.beginPath(); context.arc(x + Math.cos(angle) * orbit, y + Math.sin(angle) * orbit, .3 + (cell % 2) * .08, 0, Math.PI * 2); context.fill(); }
-        if (selectedId === organism.id) { context.fillStyle = '#e7f5ff'; context.font = "1.8px 'DM Mono', monospace"; context.textAlign = 'center'; context.fillText(organism.id, x, y + radius + 3.0); }
-      });
-      context.globalAlpha = 1;
-      if (!state.organisms.length) { context.fillStyle = '#6f8ca3'; context.font = "3px 'DM Mono', monospace"; context.textAlign = 'center'; context.fillText('ZERO LEARNED STRUCTURE', 50, 50); }
-      animation = requestAnimationFrame(draw);
-    };
-    animation = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(animation);
-  }, [state, selectedId]);
-
-  function selectAt(event: React.MouseEvent<HTMLCanvasElement>) {
-    const box = event.currentTarget.getBoundingClientRect();
-    const x = (event.clientX - box.left) / box.width * 100;
-    const y = (event.clientY - box.top) / box.height * 100;
-    const nearest = state.organisms.map((organism) => ({ organism, distance: Math.hypot(organism.x - x, organism.y - y) })).sort((a, b) => a.distance - b.distance)[0];
-    if (nearest && nearest.distance < 7) onSelect(nearest.organism.id);
-  }
-
-  return <canvas ref={canvasRef} className="ecosystem-canvas" onClick={selectAt} aria-label="Living self-organizing learning habitat" />;
 }
 
 function DrawingAuditLab({ hasLearner, onOrganism }: { hasLearner: boolean; onOrganism: (id: string) => void }) {
@@ -304,7 +220,7 @@ export default function App() {
     <section className="metrics"><Metric label="Unsupervised loss" value={state.metrics.loss.toFixed(4)} hint="lower is better"/><Metric label="Micro-signature layer" value={`${state.metrics.microSignatures}/${state.metrics.microColonies}`} hint="detail units / colonies"/><Metric label="Processing cells" value={`${state.metrics.activeCells}/${state.metrics.residentCells}`} hint="active / resident"/><Metric label="Organism memory" value={`${state.metrics.activeOrganisms}/${state.metrics.residentOrganisms}`} hint="relevant / resident"/><Metric label="Consolidated memories" value={state.metrics.consolidatedMemories} hint={`${state.metrics.digestedSamples} samples fully digested`}/><Metric label="Resource score" value={state.metrics.resourceScore.toFixed(3)} hint="benefit − proxy cost"/></section>
     <section className="workspace">
       <aside className="panel input-panel"><p className="panel-title">Retinal information stream</p><div className="retina-card"><Retina stimulus={state.currentStimulus}/><div><strong>{state.currentStimulus ? 'Unlabeled retinal stimulus' : 'Waiting for photons'}</strong><span>{state.currentStimulus ? `${state.currentStimulus.renderMode} · ${Math.round(state.currentStimulus.scale * 100)}% scale · ${Math.round(state.currentStimulus.rotation * 180 / Math.PI)}° rotation · noise ${state.currentStimulus.noise}` : 'The learner begins with zero cells and sees only pixel intensity.'}</span></div></div><dl><div><dt>Semantic labels received</dt><dd>Never</dd></div><div><dt>Current step</dt><dd>{state.stepCount}</dd></div><div><dt>Retinal resolution</dt><dd>{state.currentStimulus ? `${state.currentStimulus.retinaSide} × ${state.currentStimulus.retinaSide}` : '64 × 64'}</dd></div><div><dt>Fine-detail food</dt><dd>{state.metrics.currentMicroFood.toFixed(3)}</dd></div><div><dt>Micro details digested</dt><dd>{state.metrics.microDigestedDetails}</dd></div><div><dt>Position offset</dt><dd>{state.currentStimulus ? `${state.currentStimulus.offsetX}, ${state.currentStimulus.offsetY}` : '—'}</dd></div><div><dt>Occluded area</dt><dd>{Math.round((state.currentStimulus?.occlusion ?? 0) * 100)}%</dd></div></dl><div className="rule"><b>Hierarchical retinal boundary</b><span>Pixels feed local edge and curvature micro-signatures. Their coactivation colonies compose a rotation-tolerant intermediate signature; no shape name enters either layer.</span></div></aside>
-      <section className="panel ecosystem"><div className="panel-header"><div><p className="panel-title">Living architecture</p><span>Micro-signature colonies digest fine details before concept organisms and memories respond.</span></div><span className="seed">seed {state.seed}</span></div><div className="micro-layer-summary"><span>INTERMEDIATE LAYER</span><b>{state.metrics.microSignatures} micro-signatures</b><i>{state.metrics.microColonies} coactivation colonies · food {state.metrics.currentMicroFood.toFixed(3)}</i></div><LivingArchitecture state={state} selectedId={selected?.id ?? null} onSelect={setSelectedId}/><div className="legend"><span><i className="micro-dot"/>micro detail</span><span><i className="food-dot"/>undigested food</span><span><i className="digested-dot"/>fully digested</span><span><i className="dot cyan"/>cell</span><span><i className="dot violet"/>concept organism</span><span><i className="ring"/>colony / memory</span></div></section>
+      <section className="panel ecosystem"><div className="panel-header"><div><p className="panel-title">Living architecture · 3D</p><span>Explore how retinal details become cells, organisms, colonies, and persistent memories.</span></div><span className="seed">seed {state.seed}</span></div><div className="micro-layer-summary"><span>INTERMEDIATE LAYER</span><b>{state.metrics.microSignatures} micro-signatures</b><i>{state.metrics.microColonies} coactivation colonies · food {state.metrics.currentMicroFood.toFixed(3)}</i></div><LivingArchitecture3D state={state} selectedId={selected?.id ?? null} onSelect={setSelectedId}/><div className="legend architecture-legend"><span><i className="micro-dot"/>micro-signature</span><span><i className="food-dot"/>information food</span><span><i className="digested-dot"/>memory engram</span><span><i className="dot cyan"/>cell / organism</span><span><i className="ring"/>colony membrane</span></div></section>
       <aside className="panel inspector"><p className="panel-title">Selected organism</p>{selected ? <><div className="organism-heading"><i style={{ background: selected.color }}/><div><strong>{selected.id}</strong><span>lineage {selected.lineage}</span></div><b className={`lifecycle-badge ${selected.lifecycleState}`}>{selected.lifecycleState}</b></div><dl><div><dt>Cells</dt><dd>{cellsByOrganism[selected.id] ?? 0}</dd></div><div><dt>Intermediate signature</dt><dd>{selected.intermediateDimensions} dims</dd></div><div><dt>Global age</dt><dd>{selected.ageSteps} steps</dd></div><div><dt>Learning wins</dt><dd>{selected.wins}</dd></div><div><dt>Undigested food evidence</dt><dd>{selected.foodEvidence.toFixed(3)}</dd></div><div><dt>Digestion evidence</dt><dd>{selected.digestionEvidence.toFixed(1)}</dd></div><div><dt>Consolidated memories</dt><dd>{selected.memoryIds.length}</dd></div><div><dt>Inactive</dt><dd>{selected.inactiveSteps} steps</dd></div><div><dt>Reactivations</dt><dd>{selected.reactivations}</dd></div><div><dt>Protected for</dt><dd>{Math.max(0, selected.protectedUntil - state.stepCount)} steps</dd></div><div><dt>Energy</dt><dd>{Math.round(selected.energy * 100)}%</dd></div><div><dt>Marginal contribution</dt><dd>{selected.contribution.toFixed(4)}</dd></div><div><dt>Colony</dt><dd>{selected.colonyId ?? 'independent'}</dd></div></dl><button className="secondary full" onClick={() => void runAblation(selected)}>Run read-only ablation</button>{ablation?.organismId === selected.id && <div className="ablation"><b>Evidence</b><span>Loss changes by {ablation.delta.toFixed(4)} when {selected.id} is removed.</span><small>{ablation.modelModified ? 'Warning: state changed' : 'Live state preserved'}</small></div>}</> : <p className="empty-copy">An organism inspector will appear after the first unlabeled stimulus creates a pioneer cell.</p>}</aside>
     </section>
     <DrawingAuditLab hasLearner={state.organisms.length > 0} onOrganism={setSelectedId}/>

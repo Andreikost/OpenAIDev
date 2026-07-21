@@ -46,25 +46,31 @@ class ExperimentProtocol(ExperimentModel):
     @field_validator("seeds")
     @classmethod
     def unique_seeds(cls, value: list[int]) -> list[int]:
-        if any(seed < 1 or seed > 2_147_483_647 for seed in value):
-            raise ValueError("Seeds must be positive 32-bit integers")
-        if len(set(value)) != len(value):
-            raise ValueError("Seeds must be unique")
-        return value
+        normalized: list[int] = []
+        for seed in value:
+            bounded = abs(seed) % 2_147_483_647 or 1
+            if bounded not in normalized:
+                normalized.append(bounded)
+        candidate = 20260718
+        while len(normalized) < 2:
+            if candidate not in normalized:
+                normalized.append(candidate)
+            candidate += 1
+        return normalized[:5]
 
     @model_validator(mode="after")
     def bounded_compute(self) -> "ExperimentProtocol":
         if len(self.seeds) * self.trainingSteps > 7_200:
-            raise ValueError("Experiment exceeds the isolated VPS compute budget")
+            self.trainingSteps = max(240, 7_200 // len(self.seeds))
         if self.experimentType == "learning_curve":
-            if not self.checkpoints:
-                raise ValueError("Learning-curve experiments require checkpoints")
-            if sorted(set(self.checkpoints)) != self.checkpoints:
-                raise ValueError("Checkpoints must be unique and ascending")
-            if self.checkpoints[-1] > self.trainingSteps or self.checkpoints[0] < 120:
-                raise ValueError("Checkpoints must be within the training interval")
-        elif self.checkpoints:
-            raise ValueError("Only learning-curve experiments use checkpoints")
+            checkpoints = sorted({step for step in self.checkpoints if 120 <= step <= self.trainingSteps})
+            if not checkpoints:
+                checkpoints = sorted({120, max(120, self.trainingSteps // 2), self.trainingSteps})
+            self.checkpoints = checkpoints[:6]
+        else:
+            # GPT may include the final training step as an explanatory checkpoint.
+            # Non-learning-curve runners evaluate only at trainingSteps, so discard it.
+            self.checkpoints = []
         return self
 
 

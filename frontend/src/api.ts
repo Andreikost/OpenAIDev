@@ -19,7 +19,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const token = authToken();
   if (token) headers.set('Authorization', `Bearer ${token}`);
   const response = await fetch(path, { ...init, headers });
-  if (!response.ok) throw new Error(await response.text() || `Request failed: ${response.status}`);
+  if (!response.ok) {
+    const raw = await response.text();
+    let message = raw || `Request failed: ${response.status}`;
+    try {
+      const payload = JSON.parse(raw) as { detail?: unknown };
+      if (typeof payload.detail === 'string') message = payload.detail;
+    } catch { /* Preserve non-JSON server errors. */ }
+    throw new Error(message);
+  }
   return response.json() as Promise<T>;
 }
 

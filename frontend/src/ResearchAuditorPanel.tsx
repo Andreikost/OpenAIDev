@@ -6,6 +6,7 @@ type Props = {
   enabled: boolean;
   stepCount: number;
   onBeforeAudit: () => void;
+  onAudit?: (audit: ResearchAudit) => void;
 };
 
 function readableError(error: unknown) {
@@ -14,7 +15,7 @@ function readableError(error: unknown) {
   return 'GPT-5.6 could not audit this snapshot. The learner was not modified.';
 }
 
-export function ResearchAuditorPanel({ enabled, stepCount, onBeforeAudit }: Props) {
+export function ResearchAuditorPanel({ enabled, stepCount, onBeforeAudit, onAudit }: Props) {
   const [audit, setAudit] = useState<ResearchAudit | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -24,7 +25,9 @@ export function ResearchAuditorPanel({ enabled, stepCount, onBeforeAudit }: Prop
     setBusy(true);
     setError('');
     try {
-      setAudit(await api.researchAudit());
+      const nextAudit = await api.researchAudit();
+      setAudit(nextAudit);
+      onAudit?.(nextAudit);
     } catch (requestError) {
       setError(readableError(requestError));
     } finally {

@@ -4,11 +4,29 @@ import threading
 from collections import OrderedDict
 from typing import Annotated, Any
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from .core import ColonyMindEngine
+from .auth import (
+    AuthSession,
+    AuthUser,
+    GoogleLoginRequest,
+    auth_config,
+    issue_session,
+    optional_user,
+    verify_google_access_token,
+)
+from .experiments import (
+    BASELINE_ID,
+    ExperimentDesigner,
+    ExperimentExecutor,
+    ExperimentRecord,
+    ExperimentRegistry,
+    GenerateExperimentRequest,
+    baseline_manifest,
+)
 from .research_auditor import ResearchAuditor, build_research_snapshot
 
 
@@ -36,11 +54,19 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 lock = threading.RLock()
 engines: OrderedDict[str, ColonyMindEngine] = OrderedDict()
 research_auditor = ResearchAuditor()
+experiment_designer = ExperimentDesigner()
+experiment_registry = ExperimentRegistry()
+experiment_executor = ExperimentExecutor(experiment_registry)
 MAX_SESSIONS = 64
 SessionId = Annotated[
     str,
     Header(alias="X-ColonyMind-Session", min_length=8, max_length=64, pattern=r"^[A-Za-z0-9_-]+$"),
 ]
+ExperimentWorkspaceId = Annotated[
+    str,
+    Header(alias="X-Experiment-Workspace", min_length=8, max_length=64, pattern=r"^[A-Za-z0-9_-]+$"),
+]
+OptionalUser = Annotated[AuthUser | None, Depends(optional_user)]
 
 
 def engine_for(session_id: str) -> ColonyMindEngine:
@@ -65,7 +91,107 @@ def health() -> dict[str, Any]:
             "sessionIsolation": True,
             "researchAuditorConfigured": research_auditor.configured,
             "researchAuditorModel": research_auditor.model,
+            "experimentDesignerConfigured": experiment_designer.configured,
+            "persistentExperimentsConfigured": experiment_registry.persistent.enabled,
+            "immutableBaselineVerified": baseline_manifest()["verified"],
         }
+
+
+@app.get("/api/auth/config")
+def get_auth_config() -> dict[str, Any]:
+    return auth_config(experiment_registry.persistent.enabled)
+
+
+@app.post("/api/auth/google", response_model=AuthSession)
+def google_login(payload: GoogleLoginRequest) -> AuthSession:
+    return issue_session(verify_google_access_token(payload.accessToken))
+
+
+@app.get("/api/auth/me")
+def auth_me(user: OptionalUser) -> dict[str, Any]:
+    return {"user": user}
+
+
+@app.get("/api/experiments/baseline")
+def experiment_baseline() -> dict[str, Any]:
+    return baseline_manifest()
+
+
+@app.get("/api/experiments", response_model=list[ExperimentRecord])
+def list_experiments(workspace_id: ExperimentWorkspaceId, user: OptionalUser) -> list[ExperimentRecord]:
+    try:
+        return experiment_registry.list(workspace_id, user)
+    except RuntimeError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+
+
+@app.post("/api/experiments", response_model=ExperimentRecord)
+def generate_experiment(
+    payload: GenerateExperimentRequest,
+    session_id: SessionId,
+    workspace_id: ExperimentWorkspaceId,
+    user: OptionalUser,
+) -> ExperimentRecord:
+    if not baseline_manifest()["verified"]:
+        raise HTTPException(status_code=503, detail="The immutable baseline fingerprint could not be verified")
+    with lock:
+        engine = engine_for(session_id)
+        state_hash = engine.state_hash()
+    audit = research_auditor.cached_for_state(state_hash)
+    if audit is None:
+        raise HTTPException(status_code=409, detail="Run the GPT-5.6 Research Auditor for this state first")
+
+    parent = None
+    if payload.parentId:
+        if payload.parentId == BASELINE_ID:
+            parent = baseline_manifest()
+        else:
+            parent_record = experiment_registry.get(workspace_id, user, payload.parentId)
+            if parent_record is None:
+                raise HTTPException(status_code=404, detail="Parent experiment was not found")
+            parent = parent_record.model_dump()
+    try:
+        proposal, usage = experiment_designer.propose(audit, payload.instruction, parent)
+    except RuntimeError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+    except Exception as error:
+        raise HTTPException(status_code=502, detail="GPT-5.6 could not produce a safe experiment version") from error
+    return experiment_registry.create(
+        workspace_id,
+        user,
+        proposal,
+        payload.instruction,
+        payload.parentId or BASELINE_ID,
+        usage,
+    )
+
+
+@app.post("/api/experiments/{experiment_id}/run", response_model=ExperimentRecord)
+def execute_experiment(
+    experiment_id: str,
+    workspace_id: ExperimentWorkspaceId,
+    user: OptionalUser,
+) -> ExperimentRecord:
+    if not baseline_manifest()["verified"]:
+        raise HTTPException(status_code=503, detail="The immutable baseline fingerprint could not be verified")
+    record = experiment_registry.get(workspace_id, user, experiment_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Experiment was not found")
+    return experiment_executor.submit(workspace_id, user, record)
+
+
+@app.delete("/api/experiments/{experiment_id}")
+def delete_experiment(
+    experiment_id: str,
+    workspace_id: ExperimentWorkspaceId,
+    user: OptionalUser,
+) -> dict[str, Any]:
+    if experiment_id == BASELINE_ID:
+        raise HTTPException(status_code=409, detail="The immutable baseline cannot be deleted")
+    deleted = experiment_registry.delete(workspace_id, user, experiment_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Experiment was not found")
+    return {"deleted": True, "baselinePreserved": True}
 
 
 @app.get("/api/state")

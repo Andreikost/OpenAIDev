@@ -272,6 +272,14 @@ export function LivingArchitecture3D({ state, selectedId, onSelect }: Props) {
   const selectedCells = selected
     ? state.cells.filter((cell) => cell.organism_id === selected.id).length
     : 0;
+  const selectedAffinities = selected?.microAffinities ?? {};
+  const strongestAffinity = Math.max(0, ...Object.values(selectedAffinities));
+  const meaningfulAffinity = Math.max(0.015, strongestAffinity * 0.35);
+  const selectedMicroIds = new Set(
+    Object.entries(selectedAffinities)
+      .filter(([, affinity]) => affinity >= meaningfulAffinity)
+      .map(([microId]) => microId),
+  );
 
   useEffect(() => {
     const host = hostRef.current;
@@ -430,6 +438,9 @@ export function LivingArchitecture3D({ state, selectedId, onSelect }: Props) {
         } else if (object.userData.kind === 'active-micro' && !reducedMotion) {
           const pulse = 0.82 + Math.sin(elapsed * 4.2 + object.userData.phase) * 0.24;
           object.scale.setScalar(pulse);
+        } else if (object.userData.kind === 'related-micro' && !reducedMotion) {
+          const pulse = 1 + Math.sin(elapsed * 2.4 + object.userData.phase) * (0.04 + object.userData.affinity * 0.08);
+          object.scale.setScalar(pulse);
         }
       });
       const activeMorph = runtimeRef.current?.activeMorph;
@@ -516,6 +527,7 @@ export function LivingArchitecture3D({ state, selectedId, onSelect }: Props) {
     const lastPatch = state.informationPatches[state.informationPatches.length - 1];
     const activeMicroIds = new Set(lastPatch?.microActivations ?? []);
     const microPositions = new Map<string, THREE.Vector3>();
+    const selectedColor = selected?.color ?? '#64d9ff';
 
     state.microSignatures.forEach((micro, index) => {
       const colonyIndex = micro.colonyId
@@ -531,21 +543,28 @@ export function LivingArchitecture3D({ state, selectedId, onSelect }: Props) {
       );
       microPositions.set(micro.id, position);
       const active = activeMicroIds.has(micro.id);
-      const radiusValue = 0.055 + Math.min(0.11, Math.log2(2 + micro.observations) * 0.012);
+      const affinity = selectedAffinities[micro.id] ?? 0;
+      const related = selectedMicroIds.has(micro.id);
+      const dimmed = Boolean(selected) && !related;
+      const radiusValue = 0.055
+        + Math.min(0.11, Math.log2(2 + micro.observations) * 0.012)
+        + (related ? affinity * 0.09 : 0);
       const mesh = new THREE.Mesh(
         new THREE.IcosahedronGeometry(radiusValue, 1),
         new THREE.MeshStandardMaterial({
-          color: active ? 0xffe1a3 : 0xffa84f,
-          emissive: active ? 0xff9f2d : 0x7d3208,
-          emissiveIntensity: active ? 3.2 : 0.8,
+          color: related ? selectedColor : active ? 0xffe1a3 : 0xffa84f,
+          emissive: related ? selectedColor : active ? 0xff9f2d : 0x7d3208,
+          emissiveIntensity: active && related ? 4.4 : active ? 3.2 : related ? 2.2 + affinity * 2.4 : 0.8,
           roughness: 0.35,
           transparent: true,
-          opacity: 0.45 + Math.min(0.45, micro.energy * 0.3),
+          opacity: dimmed ? 0.11 : 0.45 + Math.min(0.45, micro.energy * 0.3),
         }),
       );
       mesh.position.copy(position);
       if (active) {
         mesh.userData = { kind: 'active-micro', phase: index * 0.7 };
+      } else if (related) {
+        mesh.userData = { kind: 'related-micro', phase: index * 0.7, affinity };
       }
       content.add(mesh);
     });
@@ -752,6 +771,23 @@ export function LivingArchitecture3D({ state, selectedId, onSelect }: Props) {
       content.add(group);
     });
 
+    if (selected) {
+      const organismPosition = organismPositions.get(selected.id);
+      if (organismPosition) {
+        selectedMicroIds.forEach((microId) => {
+          const microPosition = microPositions.get(microId);
+          if (!microPosition) return;
+          const affinity = selectedAffinities[microId] ?? 0;
+          addLine(
+            content,
+            [microPosition, organismPosition],
+            selectedColor,
+            0.08 + Math.min(0.42, affinity * 0.72),
+          );
+        });
+      }
+    }
+
     state.colonies.forEach((colony, colonyIndex) => {
       const colonyBornAt = firstSeen(`colony:${colony.id}`);
       const members = colony.member_ids.map((id) => organismPositions.get(id)).filter(Boolean) as THREE.Vector3[];
@@ -881,7 +917,7 @@ export function LivingArchitecture3D({ state, selectedId, onSelect }: Props) {
     {selected && <div className="architecture-selection">
       <i style={{ background: selected.color }} />
       <span><b>{selected.id}</b>{selectedCells} cells · {selected.lifecycleState} · {selected.colonyId ?? 'independent'}</span>
-      <em>{selected.memoryIds.length} memories</em>
+      <em>{selectedMicroIds.size} micro links · {selected.memoryIds.length} memories</em>
     </div>}
   </div>;
 }

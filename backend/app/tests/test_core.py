@@ -242,6 +242,29 @@ def test_persistent_intermediate_food_grows_label_free_specialists() -> None:
     assert engine.event_totals.get("ORGANISM_BIRTH", 0) >= 3
 
 
+def test_organisms_accumulate_explicit_micro_affinity_profiles() -> None:
+    engine = ColonyMindEngine(seed=20260718)
+    state = engine.step(240)
+
+    micro_ids = {micro["id"] for micro in state["microSignatures"]}
+    profiled = [organism for organism in state["organisms"] if organism["microProfileUpdates"] > 0]
+    assert profiled
+    assert any(organism["microAffinities"] for organism in profiled)
+    assert all(
+        set(organism["microAffinities"]).issubset(micro_ids)
+        for organism in profiled
+    )
+    assert all(
+        0.0 < affinity <= 1.0
+        for organism in profiled
+        for affinity in organism["microAffinities"].values()
+    )
+    assert all(
+        organism["microProfileUpdates"] == organism["wins"]
+        for organism in state["organisms"]
+    )
+
+
 def test_information_habitat_spreads_different_retinal_inputs() -> None:
     engine = ColonyMindEngine(seed=42)
     coordinates = [engine._information_coordinates(engine._sample()[0]) for _ in range(36)]
@@ -309,6 +332,8 @@ def test_performance_report_contains_structure_and_drawing_evidence() -> None:
     assert report["performance"]["population"]["lifecyclePolicy"]["growthLimits"] is None
     assert "memories" in report["performance"]
     assert report["performance"]["intermediateLayer"]["microSignatures"] > 0
+    assert report["performance"]["intermediateLayer"]["organismAffinityProfiles"]
+    assert "excluded from routing" in report["performance"]["intermediateLayer"]["organismAffinityDefinition"]
     assert report["performance"]["colonies"]["active"] == len(engine.colonies)
     assert report["performance"]["structuralAdaptations"]["byType"]["CELL_BIRTH"] >= 1
     assert report["performance"]["drawAndAudit"]["trials"] == 1

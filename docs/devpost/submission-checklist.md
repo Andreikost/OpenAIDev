@@ -16,6 +16,7 @@ Use only technologies present in the final repository:
 - Codex
 - GPT-5.6
 - OpenAI Responses API
+- Structured Outputs
 - React
 - TypeScript
 - Vite
@@ -27,6 +28,8 @@ Use only technologies present in the final repository:
 - PostgreSQL
 - Docker
 - HTML5 Canvas
+- WebGL
+- Playwright
 - Pytest
 - Unsupervised Learning
 - Dynamic Neural Networks
@@ -40,6 +43,26 @@ Add after verification:
 
 1. `https://openaidev.automationfreelancer.com` — live judge demo.
 2. `https://github.com/Andreikost/OpenAIDev` — source and setup.
+3. `https://github.com/Andreikost/OpenAIDev/blob/main/output/pdf/colonymind-quick-guide.pdf` — quick judge guide.
+4. `https://github.com/Andreikost/OpenAIDev/blob/main/docs/evidence/five-seed-baseline-2026-07-21.json` — checked-in benchmark evidence.
+
+## Project media
+
+Upload the prepared 3:2 PNG files in this order. Each is 1500 x 1000 and below
+Devpost's 5 MB limit.
+
+1. `output/devpost-media/01-living-growth.png` — Learning by foraging: retinal residuals recruit cells, organisms, and micro-signatures.
+2. `output/devpost-media/02-draw-and-audit.png` — Draw & Audit: human-drawn input is checked without sending semantic labels into training.
+3. `output/devpost-media/03-gpt56-research-auditor.png` — GPT-5.6 Research Auditor: frozen aggregate evidence, read only, with learner state preserved.
+4. `output/devpost-media/04-versioned-experiments.png` — Versioned Experiment Studio: isolated protocols while Baseline v1 remains locked.
+5. `output/devpost-media/05-codex-collaboration.png` — Built with Codex and GPT-5.6, with dated commits, tests, evidence, and deployment.
+
+## Video upload
+
+- Final file: `output/video/colonymind-build-week-final.mp4`
+- Captions: `output/video/colonymind-build-week-captions.srt`
+- Upload to YouTube as **Public**, verify while signed out, and paste the public
+  watch URL into Devpost's **Video demo link** field.
 
 ## Required submission evidence
 

@@ -32,7 +32,7 @@ HTML5 Canvas, Unsupervised Learning, Dynamic Neural Networks, Bio-inspired AI.
 
 ## Required manual fields
 
-- **YouTube demo URL:** `[PASTE PUBLIC OR UNLISTED YOUTUBE URL]`
+- **YouTube demo URL:** `[PASTE PUBLIC YOUTUBE URL]`
 - **Codex `/feedback` Session ID:** `[PASTE PRIMARY BUILD THREAD SESSION ID]`
 - **Team:** Ensure every listed teammate has accepted the Devpost invitation.
 - **Submission state:** Confirm the project displays **Submitted**, not Draft.
@@ -113,5 +113,5 @@ End on the 3D architecture and repository/live-demo links.
 - Keep the final duration below 3:00 and do not include loading or typing.
 - Use no copyrighted music, third-party logos, notifications, API keys, email
   addresses, browser bookmarks, or server terminals.
-- Upload early to YouTube as public or unlisted and test the link while signed
+- Upload early to YouTube as public and test the link while signed
   out.

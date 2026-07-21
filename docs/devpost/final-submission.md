@@ -30,6 +30,64 @@ HTML5 Canvas, Unsupervised Learning, Dynamic Neural Networks, Bio-inspired AI.
 6. Use Versioned Experiment Studio to create and run an isolated protocol. The
    immutable Baseline v1 remains locked. Anonymous versions disappear on refresh.
 
+## Installation, supported platforms, and testing
+
+**Fastest judge path — no installation or account required:** Open
+https://openaidev.automationfreelancer.com in a current desktop version of
+Chrome, Edge, Firefox, or Safari. Let the retinal stream advance; inspect the
+learning traffic light; rotate, zoom, and select an organism in the 3D field;
+draw a circle, triangle, or square in Draw & Audit; reveal the frozen
+hidden-label evaluation; run the GPT-5.6 Research Auditor; and create an isolated
+versioned experiment. Baseline v1 always remains locked. Anonymous experiment
+versions intentionally disappear when the page is refreshed.
+
+**Local installation:** Requires Git, Python 3.12+, Node.js 22+, and npm on
+Windows, macOS, or Linux.
+
+```bash
+git clone https://github.com/Andreikost/OpenAIDev.git
+cd OpenAIDev/backend
+python -m venv .venv
+# Activate .venv, then:
+python -m pip install -r requirements.txt pytest
+python -m uvicorn app.main:app --port 8201
+```
+
+In a second terminal:
+
+```bash
+cd OpenAIDev/frontend
+npm ci
+npm run dev
+```
+
+Open http://127.0.0.1:5173. All retinal and held-out samples are generated
+deterministically, so no dataset download is required. Run backend tests with
+`python -m pytest app/tests -q` and verify the frontend with `npm run build`.
+Docker 24+ with Compose is the recommended production path (`docker compose up
+--build`, then open http://127.0.0.1:8200).
+
+The core learner and local evaluation need no API key. The external Research
+Auditor and Experiment Designer require a server-side `OPENAI_API_KEY`; the key
+is never sent to the browser. Google login and PostgreSQL are optional and only
+provide persistent experiment history; anonymous use remains fully available.
+
+## Private judge access field
+
+Live project: https://openaidev.automationfreelancer.com
+
+No credentials or installation are required. Please use a current desktop
+browser. Suggested 2–3 minute test: (1) let the retinal stream advance and watch
+the learning traffic light; (2) rotate/zoom the Living Architecture 3D view and
+select an organism; (3) draw a circle, triangle, or square in Draw & Audit; (4)
+reveal the frozen hidden-label evaluation; (5) run the GPT-5.6 Research Auditor;
+and (6) create an isolated experiment in Versioned Experiment Studio. Baseline
+v1 is immutable. Anonymous experiment versions intentionally disappear on page
+refresh; Google login is optional and only enables persistent history.
+
+Source and reproducibility evidence:
+https://github.com/Andreikost/OpenAIDev
+
 ## Required manual fields
 
 - **YouTube demo URL:** `[PASTE PUBLIC YOUTUBE URL]`

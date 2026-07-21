@@ -20,6 +20,7 @@ complex visual patterns and eventually opt-in camera streams.
 - [Open-ended growth benchmark](docs/experiments/open-ended-growth.md)
 - [Micro-signature layer benchmark](docs/experiments/micro-signature-layer.md)
 - [3D living architecture](docs/architecture/3d-living-architecture.md)
+- [GPT-5.6 Research Auditor](docs/architecture/gpt-research-auditor.md)
 - [Devpost thumbnail](assets/colonymind-devpost-thumbnail.png)
 
 ## Run the benchmark locally
@@ -61,9 +62,21 @@ hidden-label read-only evaluation, a draw-your-own retinal probe with an externa
 geometric auditor, read-only ablation, and a downloadable JSON performance
 report v5 with structural-change, intermediate-layer, digestion, memory, and audit
 evidence. The browser visualizes the same live state as an interactive 3D field
-with navigable cells, organisms, colony membranes, and memory engrams. The planned GPT-5.6
-curriculum/explanation layer and camera input are deliberately not represented
-as implemented features yet.
+with navigable cells, organisms, colony membranes, and memory engrams.
+
+The external GPT-5.6 Research Auditor receives a compact, frozen JSON snapshot
+of aggregate evidence and returns a schema-validated scientific interpretation:
+findings, risks, controlled next experiments, and publication readiness. It has
+no tools, learning write path, raw retinal pixels, or cell prototypes. Snapshot
+hashes before and after extraction make this boundary visible in the interface.
+Camera input remains a future phase and is not represented as implemented.
+
+## GPT-5.6 Research Auditor
+
+Set `OPENAI_API_KEY` only in the backend environment. Optional settings are
+`OPENAI_MODEL=gpt-5.6-sol` and `OPENAI_REASONING_EFFORT=medium`. The browser never
+receives the credential. Repeated audits of the same state hash reuse a bounded
+server-side cache rather than creating another API request.
 
 ## Security
 

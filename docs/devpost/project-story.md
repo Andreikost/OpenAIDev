@@ -23,6 +23,8 @@ than it costs.
 
 Users can watch cells emerge, inspect organism specialization, observe
 persistent colonies, and reveal hidden-label evaluation only after training.
+They can then freeze the evidence and ask an external GPT-5.6 Research Auditor
+to identify findings, scientific risks, and the next controlled experiments.
 
 ## Why shapes first
 
@@ -40,9 +42,10 @@ benefit with structural cost. Its structural review can add capacity for a
 persistent residual or a sufficiently novel unlabeled visual regime.
 
 Codex supported architecture, implementation, testing, visualization,
-documentation, and deployment throughout Build Week. GPT-5.6 curriculum and
-structured-event explanation are planned next steps; they are not represented
-as shipped P0 behavior.
+documentation, and deployment throughout Build Week. GPT-5.6 Sol powers a
+functional external Research Auditor through the Responses API and Structured
+Outputs. It sees only aggregate metrics and declared limitations, returns a
+validated research report, and has no tools or write access to the learner.
 
 ## Challenges we ran into
 
@@ -56,10 +59,16 @@ resource metrics that do not confuse a compute proxy with electrical energy.
 
 ## Accomplishments that we're proud of
 
-This section will be updated only with results verified by saved reports. Our
-target is a working zero-to-colony learning journey, hidden-label evaluation,
-read-only ablation, and matched comparisons among a fixed baseline, one dynamic
-organism, and the complete colony system.
+The intermediate micro-signature layer corrected the original circle/square
+failure: a frozen 300-sample probe at step 2,400 reached 97.67% purity, with
+98/100 circles, 97/100 triangles, and 98/100 squares assigned to their dominant
+communities. Five seeds at step 240 reached mean purity 99.2% (minimum 95.8%).
+These are controlled synthetic results, not a camera-vision claim.
+
+We also built a working zero-to-colony learning journey, hidden-label read-only
+evaluation, Draw & Audit lab, counterfactual organism ablation, downloadable
+evidence report, interactive 3D architecture, and GPT-5.6 scientific audit with
+an explicit hash-verified read-only boundary.
 
 ## What we learned
 

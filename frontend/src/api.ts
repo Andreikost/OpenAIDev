@@ -1,4 +1,4 @@
-import type { Ablation, DrawingAudit, Evaluation, State } from './types';
+import type { Ablation, DrawingAudit, Evaluation, ResearchAudit, State } from './types';
 
 const SESSION_STORAGE_KEY = 'colonymind-session-v1';
 const existingSession = window.localStorage.getItem(SESSION_STORAGE_KEY);
@@ -22,4 +22,5 @@ export const api = {
   auditDrawing: (pixels: number[]) => request<DrawingAudit>('/api/audit-drawing', { method: 'POST', body: JSON.stringify({ pixels }) }),
   ablate: (organismId: string) => request<Ablation>('/api/ablate', { method: 'POST', body: JSON.stringify({ organism_id: organismId }) }),
   report: () => request<Record<string, unknown>>('/api/report'),
+  researchAudit: () => request<ResearchAudit>('/api/research-audit', { method: 'POST' }),
 };

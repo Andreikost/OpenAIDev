@@ -36,3 +36,33 @@ export type DrawingAudit = {
   agreement: boolean;
   note: string;
 };
+export type ResearchAudit = {
+  schema: string;
+  auditId: string | null;
+  generatedAt: string;
+  provider: 'OpenAI';
+  model: string;
+  requestedModel: string;
+  snapshotStateHash: string;
+  cached: boolean;
+  modelModified: false;
+  learningWriteAccess: false;
+  rawRetinaShared: false;
+  boundaryNote: string;
+  usage: { inputTokens?: number; outputTokens?: number; totalTokens?: number } | null;
+  snapshotExtractionHashBefore: string;
+  snapshotExtractionHashAfter: string;
+  liveStateHashAtResponse: string;
+  liveStateAdvancedDuringAudit: boolean;
+  analysis: {
+    headline: string;
+    verdict: 'insufficient data' | 'promising but preliminary' | 'stable on current benchmark' | 'needs attention';
+    judgeTakeaway: string;
+    executiveSummary: string;
+    findings: { title: string; observation: string; evidence: string[]; interpretation: string }[];
+    risks: { severity: 'low' | 'medium' | 'high'; issue: string; whyItMatters: string }[];
+    nextExperiments: { priority: 'now' | 'next' | 'later'; title: string; hypothesis: string; protocol: string; successMetric: string }[];
+    publicationReadiness: { stage: 'insufficient evidence' | 'proof of concept' | 'workshop ready' | 'paper candidate'; strongestEvidence: string; missingEvidence: string };
+    resourceAssessment: { status: 'proxy only' | 'partially measured' | 'measured'; interpretation: string };
+  };
+};

@@ -51,6 +51,8 @@ class Organism:
     food_evidence: float = 0.0
     digestion_evidence: float = 0.0
     memory_ids: list[str] = field(default_factory=list)
+    micro_affinities: dict[str, float] = field(default_factory=dict)
+    micro_profile_updates: int = 0
     contribution: float = 0.0
     x: float = 50.0
     y: float = 50.0
@@ -355,6 +357,29 @@ class ColonyMindEngine:
         organism.cells.append(cell_id)
         self._event("CELL_BIRTH", cell_id, [reason], {"cellEnergy": cell.energy})
         return cell
+
+    def _update_organism_micro_affinities(
+        self,
+        organism: Organism,
+        active_micro_ids: list[str],
+    ) -> None:
+        """Track P(micro-signature active | organism wins) for explainability.
+
+        This profile is observational: routing and learning continue to use the
+        established intermediate signature so adding explanations cannot change
+        which organism wins or how its cells adapt.
+        """
+        active = set(active_micro_ids)
+        rate = 0.035
+        for micro_id in set(organism.micro_affinities) | active:
+            previous = organism.micro_affinities.get(micro_id, 0.0)
+            target = 1.0 if micro_id in active else 0.0
+            affinity = previous + rate * (target - previous)
+            if affinity < 0.002 and micro_id not in active:
+                organism.micro_affinities.pop(micro_id, None)
+            else:
+                organism.micro_affinities[micro_id] = round(affinity, 6)
+        organism.micro_profile_updates += 1
 
     @staticmethod
     def _distance(vector: np.ndarray, prototype: list[float]) -> float:
@@ -1295,6 +1320,7 @@ class ColonyMindEngine:
             responses = [(org, *self._organism_response(org, vector)) for org in processing]
             responses.sort(key=lambda row: row[1], reverse=True)
             winner, winner_activation, reconstruction, winner_cells = responses[0]
+            self._update_organism_micro_affinities(winner, active_micro_ids)
             self._move_organisms(
                 [(organism, activation, response) for organism, activation, response, _cells in responses],
                 information_patch,
@@ -1408,6 +1434,11 @@ class ColonyMindEngine:
                 "digestionEvidence": round(organism.digestion_evidence, 4),
                 "memoryIds": organism.memory_ids,
                 "intermediateDimensions": len(organism.intermediate_signature),
+                "microAffinities": {
+                    micro_id: round(affinity, 4)
+                    for micro_id, affinity in sorted(organism.micro_affinities.items())
+                },
+                "microProfileUpdates": organism.micro_profile_updates,
                 "x": round(organism.x, 2),
                 "y": round(organism.y, 2),
                 "heading": round(organism.heading, 3),
@@ -1441,6 +1472,7 @@ class ColonyMindEngine:
                     + len(self.colonies) * 144
                     + len(self.memories) * self.vector_size * 8
                     + sum(len(micro.prototype) * 8 + 128 for micro in self.micro_signatures.values())
+                    + sum(len(organism.micro_affinities) * 32 for organism in self.organisms.values())
                 ),
                 "resourceScore": round(
                     sum(org.utility for org in processing)
@@ -1965,6 +1997,18 @@ class ColonyMindEngine:
                     "pendingMicroResiduals": len(self.micro_residuals),
                     "pendingConceptResiduals": len(self.intermediate_residuals),
                     "activeMicroSignatures": self.current_micro_activations,
+                    "organismAffinityDefinition": "EMA estimate of P(micro-signature active | organism wins); observational and excluded from routing",
+                    "organismAffinityProfiles": [
+                        {
+                            "organismId": organism.id,
+                            "updates": organism.micro_profile_updates,
+                            "affinities": {
+                                micro_id: round(affinity, 6)
+                                for micro_id, affinity in sorted(organism.micro_affinities.items())
+                            },
+                        }
+                        for organism in resident_organisms
+                    ],
                     "growthPolicy": {
                         "fixedGrowthLimits": None,
                         "microNoveltyThreshold": self.micro_novelty_threshold,

@@ -36,6 +36,23 @@ must stop producing growth food.
 Shape labels are absent from all six learning rules. They are used only after
 training by the read-only evaluator.
 
+## Explicit organism affinity map
+
+The compressed 16-value micro-activity context remains the validated routing
+input. In addition, every organism now records an explainability-only affinity
+profile over the exact micro-signature IDs active when that organism wins.
+Each value is an exponential moving estimate of
+`P(micro-signature active | organism wins)` with rate `0.035`.
+
+The explicit profile does not participate in routing, winner selection, cell
+updates, growth, or memory consolidation. It therefore exposes organism-detail
+relationships without perturbing the learning behavior validated below. The
+public state and JSON report include every retained affinity and its update
+count. In the 3D view, selecting an organism highlights meaningful affinities,
+dims unrelated micro-signatures, and draws cross-layer links. The display
+threshold is relative to that organism's strongest affinity and does not limit
+what is stored or reported.
+
 ## Deterministic validation
 
 | Step | Hidden purity (24) | Organisms | Cells | Concept colonies | Micro-signatures | Memories |

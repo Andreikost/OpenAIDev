@@ -17,15 +17,33 @@ type Runtime = {
   content: THREE.Group;
   selectable: THREE.Object3D[];
   organismObjects: Map<string, THREE.Object3D>;
+  firstSeen: Map<string, number>;
+  activeMorph: { id: string; bornAt: number } | null;
+  lastStep: number;
+  reducedMotion: boolean;
   observer: ResizeObserver;
   frame: number;
   dispose: () => void;
 };
 
-const WORLD_SCALE = 0.145;
+const WORLD_SCALE = 0.72;
 const MICRO_Y = -2.55;
 const ORGANISM_Y = 0;
 const MEMORY_Y = 2.75;
+const MORPH_DURATION = 6200;
+
+function clamp01(value: number) {
+  return Math.max(0, Math.min(1, value));
+}
+
+function smooth01(value: number) {
+  const t = clamp01(value);
+  return t * t * (3 - 2 * t);
+}
+
+function morphPhase(now: number, bornAt: number, start: number, end: number) {
+  return smooth01((now - bornAt - start) / Math.max(1, end - start));
+}
 
 function hashUnit(value: string, salt = 0) {
   let hash = 2166136261 ^ salt;
@@ -37,7 +55,11 @@ function hashUnit(value: string, salt = 0) {
 }
 
 function worldPosition(x: number, y: number, vertical = ORGANISM_Y) {
-  return new THREE.Vector3((x - 50) * WORLD_SCALE, vertical, (y - 50) * WORLD_SCALE);
+  const projectAxis = (value: number) => {
+    const centered = value - 50;
+    return Math.sign(centered) * Math.sqrt(Math.abs(centered)) * WORLD_SCALE;
+  };
+  return new THREE.Vector3(projectAxis(x), vertical, projectAxis(y));
 }
 
 function addLine(
@@ -52,6 +74,97 @@ function addLine(
   const line = new THREE.Line(geometry, material);
   parent.add(line);
   return line;
+}
+
+function createDnaHelix(color: THREE.ColorRepresentation, bornAt: number) {
+  const dna = new THREE.Group();
+  dna.userData = { kind: 'dna', bornAt, baseScale: 1 };
+  const strandA: THREE.Vector3[] = [];
+  const strandB: THREE.Vector3[] = [];
+  const turns = 26;
+  for (let index = 0; index < turns; index += 1) {
+    const progress = index / (turns - 1);
+    const angle = progress * Math.PI * 4.2;
+    const y = (progress - 0.5) * 0.72;
+    strandA.push(new THREE.Vector3(Math.cos(angle) * 0.12, y, Math.sin(angle) * 0.12));
+    strandB.push(new THREE.Vector3(Math.cos(angle + Math.PI) * 0.12, y, Math.sin(angle + Math.PI) * 0.12));
+  }
+  addLine(dna, strandA, color, 0.92);
+  addLine(dna, strandB, 0xd8f9ff, 0.82);
+  for (let index = 1; index < turns - 1; index += 3) {
+    addLine(dna, [strandA[index], strandB[index]], color, 0.42);
+  }
+  dna.traverse((object) => {
+    if (object instanceof THREE.Line) {
+      object.userData.targetOpacity = (object.material as THREE.LineBasicMaterial).opacity;
+    }
+  });
+  return dna;
+}
+
+function organicGeometry(radius: number, seed: string, detail = 2) {
+  const geometry = new THREE.IcosahedronGeometry(radius, detail);
+  const positions = geometry.attributes.position as THREE.BufferAttribute;
+  const vertex = new THREE.Vector3();
+  for (let index = 0; index < positions.count; index += 1) {
+    vertex.fromBufferAttribute(positions, index);
+    const variation = 0.84 + hashUnit(`${seed}:${index}`, 57) * 0.28;
+    vertex.multiplyScalar(variation);
+    positions.setXYZ(index, vertex.x, vertex.y, vertex.z);
+  }
+  positions.needsUpdate = true;
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function tissueSegment(
+  parent: THREE.Object3D,
+  start: THREE.Vector3,
+  end: THREE.Vector3,
+  color: THREE.ColorRepresentation,
+  opacity: number,
+  bornAt: number,
+  seed: string,
+) {
+  const direction = end.clone().sub(start);
+  const midpoint = start.clone().add(end).multiplyScalar(0.5);
+  const normal = direction.clone().cross(new THREE.Vector3(0, 1, 0));
+  if (normal.lengthSq() < 0.001) normal.set(1, 0, 0);
+  normal.normalize().multiplyScalar(0.08 + hashUnit(seed, 67) * 0.13);
+  const control = midpoint.clone().add(normal);
+  const curve = new THREE.QuadraticBezierCurve3(start, control, end);
+  const segmentCount = 5;
+  for (let index = 0; index < segmentCount; index += 1) {
+    const segmentStart = curve.getPoint(index / segmentCount);
+    const segmentEnd = curve.getPoint((index + 1) / segmentCount);
+    const segmentDirection = segmentEnd.clone().sub(segmentStart);
+    const length = Math.max(0.001, segmentDirection.length());
+    const segmentMidpoint = segmentStart.clone().add(segmentEnd).multiplyScalar(0.5);
+    const mesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.014, 0.03, length, 7, 1, true),
+      new THREE.MeshStandardMaterial({
+        color,
+        emissive: color,
+        emissiveIntensity: 0.75,
+        roughness: 0.42,
+        transparent: true,
+        opacity,
+        depthWrite: false,
+      }),
+    );
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), segmentDirection.normalize());
+    mesh.position.copy(segmentStart);
+    mesh.scale.set(1, 0.001, 1);
+    mesh.userData = {
+      kind: 'tissue',
+      bornAt: bornAt + index * 95,
+      startPosition: segmentStart,
+      targetPosition: segmentMidpoint,
+      targetOpacity: opacity,
+    };
+    parent.add(mesh);
+  }
+  return curve;
 }
 
 function textSprite(text: string, color = '#dff8ff') {
@@ -145,6 +258,7 @@ function createStaticField(scene: THREE.Scene) {
 export function LivingArchitecture3D({ state, selectedId, onSelect }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
+  const morphRef = useRef<HTMLDivElement>(null);
   const runtimeRef = useRef<Runtime | null>(null);
   const [autoOrbit, setAutoOrbit] = useState(
     () => !window.matchMedia('(prefers-reduced-motion: reduce)').matches,
@@ -186,7 +300,7 @@ export function LivingArchitecture3D({ state, selectedId, onSelect }: Props) {
     scene.add(content);
 
     const camera = new THREE.PerspectiveCamera(44, 1, 0.1, 70);
-    camera.position.set(12.5, 9.2, 14.5);
+    camera.position.set(9.8, 7.1, 11.2);
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.055;
@@ -247,22 +361,92 @@ export function LivingArchitecture3D({ state, selectedId, onSelect }: Props) {
     const clock = new THREE.Clock();
     const animate = () => {
       const elapsed = clock.getElapsedTime();
-      if (!reducedMotion) {
-        content.traverse((object) => {
-          if (object.userData.kind === 'organism') {
-            object.position.y = object.userData.baseY + Math.sin(elapsed * 0.7 + object.userData.phase) * 0.075;
-          } else if (object.userData.kind === 'memory') {
-            object.rotation.z = elapsed * object.userData.speed + object.userData.phase;
-          } else if (object.userData.kind === 'information') {
-            object.rotation.x = elapsed * 0.9 + object.userData.phase;
-            object.rotation.y = elapsed * 1.2;
-            const pulse = 0.86 + Math.sin(elapsed * 3 + object.userData.phase) * 0.14;
-            object.scale.setScalar(pulse);
-          } else if (object.userData.kind === 'active-micro') {
-            const pulse = 0.82 + Math.sin(elapsed * 4.2 + object.userData.phase) * 0.24;
-            object.scale.setScalar(pulse);
+      const now = performance.now();
+      content.traverse((object) => {
+        const birthNow = reducedMotion && object.userData.bornAt
+          ? object.userData.bornAt + MORPH_DURATION + 1
+          : now;
+        if (object.userData.kind === 'organism') {
+          const emergence = morphPhase(birthNow, object.userData.bornAt, 350, 4300);
+          const float = reducedMotion ? 0 : Math.sin(elapsed * 0.7 + object.userData.phase) * 0.075;
+          object.position.y = THREE.MathUtils.lerp(MICRO_Y + 0.35, object.userData.baseY, emergence) + float;
+        } else if (object.userData.kind === 'dna') {
+          const seed = morphPhase(birthNow, object.userData.bornAt, 0, 900);
+          const settle = morphPhase(birthNow, object.userData.bornAt, 3900, 6100);
+          object.scale.setScalar(Math.max(0.001, seed * (1.15 - settle * 0.28)));
+          if (!reducedMotion) object.rotation.y = elapsed * (settle > 0.9 ? 0.35 : 1.25) + object.userData.phase;
+          object.traverse((child) => {
+            if (!(child instanceof THREE.Line)) return;
+            const material = child.material as THREE.LineBasicMaterial;
+            material.opacity = child.userData.targetOpacity * seed * (1 - settle * 0.62);
+          });
+        } else if (object.userData.kind === 'cell') {
+          const budding = morphPhase(birthNow, object.userData.bornAt, 750, 2350);
+          object.position.lerpVectors(object.userData.startPosition, object.userData.targetPosition, budding);
+          const pulseDepth = 0.025 + object.userData.activation * 0.055;
+          const pulse = reducedMotion ? 1 : 1 + Math.sin(elapsed * 2.2 + object.userData.phase) * pulseDepth;
+          object.scale.setScalar(Math.max(0.001, budding * pulse));
+          if (!reducedMotion) object.rotation.y = elapsed * 0.18 + object.userData.phase * 0.12;
+        } else if (object.userData.kind === 'tissue') {
+          const weaving = morphPhase(birthNow, object.userData.bornAt, 1550, 3450);
+          object.position.lerpVectors(object.userData.startPosition, object.userData.targetPosition, weaving);
+          object.scale.set(1, Math.max(0.001, weaving), 1);
+          const material = (object as THREE.Mesh).material as THREE.MeshStandardMaterial;
+          material.opacity = object.userData.targetOpacity * weaving;
+        } else if (object.userData.kind === 'membrane') {
+          const forming = morphPhase(birthNow, object.userData.bornAt, 3300, 5500);
+          const targetScale = object.userData.targetScale as THREE.Vector3 | undefined;
+          if (targetScale) object.scale.copy(targetScale).multiplyScalar(Math.max(0.001, forming));
+          else object.scale.setScalar(Math.max(0.001, forming));
+          const material = (object as THREE.Mesh).material as THREE.Material & { opacity: number };
+          material.opacity = object.userData.targetOpacity * forming;
+          if (!reducedMotion) object.rotation.y = elapsed * 0.12 + object.userData.phase;
+        } else if (object.userData.kind === 'signal') {
+          const connected = morphPhase(birthNow, object.userData.bornAt, 1900, 3500);
+          const travel = reducedMotion
+            ? 1
+            : (elapsed * object.userData.speed + object.userData.phase) % 1;
+          object.position.copy(object.userData.curve.getPoint(travel));
+          const pulse = reducedMotion ? 1 : 0.72 + Math.sin(elapsed * 7 + object.userData.phase) * 0.28;
+          object.scale.setScalar(Math.max(0.001, connected * pulse));
+        } else if (object.userData.kind === 'colony') {
+          const cooperation = morphPhase(birthNow, object.userData.bornAt, 700, 3100);
+          object.scale.copy(object.userData.targetScale).multiplyScalar(Math.max(0.001, cooperation));
+          const material = (object as THREE.Mesh).material as THREE.MeshBasicMaterial;
+          material.opacity = object.userData.targetOpacity * cooperation;
+        } else if (object.userData.kind === 'memory') {
+          const consolidation = morphPhase(birthNow, object.userData.bornAt, 300, 1900);
+          const pulse = reducedMotion ? 1 : 0.86 + Math.sin(elapsed * 1.8 + object.userData.phase) * 0.14;
+          object.scale.setScalar(Math.max(0.001, consolidation * pulse));
+          if (!reducedMotion) {
+            object.position.y = object.userData.baseY + Math.sin(elapsed * object.userData.speed + object.userData.phase) * 0.08;
+            object.rotation.y = elapsed * 0.22 + object.userData.phase;
           }
-        });
+        } else if (object.userData.kind === 'information' && !reducedMotion) {
+          object.rotation.x = elapsed * 0.9 + object.userData.phase;
+          object.rotation.y = elapsed * 1.2;
+          const pulse = 0.86 + Math.sin(elapsed * 3 + object.userData.phase) * 0.14;
+          object.scale.setScalar(pulse);
+        } else if (object.userData.kind === 'active-micro' && !reducedMotion) {
+          const pulse = 0.82 + Math.sin(elapsed * 4.2 + object.userData.phase) * 0.24;
+          object.scale.setScalar(pulse);
+        }
+      });
+      const activeMorph = runtimeRef.current?.activeMorph;
+      const morphElement = morphRef.current;
+      if (activeMorph && morphElement) {
+        const age = reducedMotion ? MORPH_DURATION : now - activeMorph.bornAt;
+        let phase = 'MATURE ADAPTIVE TISSUE';
+        if (age < 1150) phase = 'DNA SEED EXPRESSION';
+        else if (age < 2700) phase = 'CELL BUDDING';
+        else if (age < 4250) phase = 'TISSUE WEAVING';
+        else if (age < MORPH_DURATION) phase = 'MEMBRANE FORMATION';
+        morphElement.dataset.phase = age < MORPH_DURATION ? 'growing' : 'mature';
+        const progress = Math.round(clamp01(age / MORPH_DURATION) * 100);
+        const phaseElement = morphElement.querySelector('b');
+        const detailElement = morphElement.querySelector('small');
+        if (phaseElement) phaseElement.textContent = phase;
+        if (detailElement) detailElement.textContent = `${activeMorph.id} · ${progress}% morphogenesis`;
       }
       controls.update();
       renderer.render(scene, camera);
@@ -277,6 +461,10 @@ export function LivingArchitecture3D({ state, selectedId, onSelect }: Props) {
       content,
       selectable: [],
       organismObjects: new Map(),
+      firstSeen: new Map(),
+      activeMorph: null,
+      lastStep: 0,
+      reducedMotion,
       observer,
       frame: requestAnimationFrame(animate),
       dispose: () => {
@@ -306,6 +494,19 @@ export function LivingArchitecture3D({ state, selectedId, onSelect }: Props) {
   useEffect(() => {
     const runtime = runtimeRef.current;
     if (!runtime) return;
+    if (state.stepCount < runtime.lastStep) {
+      runtime.firstSeen.clear();
+      runtime.activeMorph = null;
+    }
+    runtime.lastStep = state.stepCount;
+    const snapshotNow = performance.now();
+    const firstSeen = (key: string, stagger = 0) => {
+      const existing = runtime.firstSeen.get(key);
+      if (existing !== undefined) return existing;
+      const bornAt = snapshotNow + stagger;
+      runtime.firstSeen.set(key, bornAt);
+      return bornAt;
+    };
     const { content } = runtime;
     disposeTree(content);
     content.clear();
@@ -358,154 +559,258 @@ export function LivingArchitecture3D({ state, selectedId, onSelect }: Props) {
 
     const organismPositions = new Map<string, THREE.Vector3>();
     state.organisms.forEach((organism, organismIndex) => {
+      const organismKey = `organism:${organism.id}`;
+      const isNewOrganism = !runtime.firstSeen.has(organismKey);
+      const organismBornAt = firstSeen(organismKey, Math.min(organismIndex, 18) * 110);
+      if (
+        isNewOrganism
+        && (!runtime.activeMorph || snapshotNow - runtime.activeMorph.bornAt > MORPH_DURATION)
+      ) runtime.activeMorph = { id: organism.id, bornAt: organismBornAt };
+
       const group = new THREE.Group();
       const basePosition = worldPosition(organism.x, organism.y, ORGANISM_Y + (hashUnit(organism.id, 6) - 0.5) * 0.75);
       group.position.copy(basePosition);
-      group.userData = { kind: 'organism', baseY: basePosition.y, phase: organismIndex * 1.71 };
+      group.userData = {
+        kind: 'organism',
+        bornAt: organismBornAt,
+        baseY: basePosition.y,
+        phase: organismIndex * 1.71,
+      };
       organismPositions.set(organism.id, basePosition.clone());
       runtime.organismObjects.set(organism.id, group);
 
       const organismCells = state.cells.filter((cell) => cell.organism_id === organism.id);
       const cellCount = Math.max(1, organismCells.length);
-      const growth = Math.min(1, 0.3 + Math.max(0, organism.ageSteps) / 80);
-      const coreRadius = (0.28 + Math.sqrt(cellCount) * 0.105) * growth;
       const dormant = organism.lifecycleState === 'dormant';
       const color = new THREE.Color(organism.color);
-      const core = new THREE.Mesh(
-        new THREE.IcosahedronGeometry(coreRadius, 3),
-        new THREE.MeshPhysicalMaterial({
-          color,
-          emissive: color,
-          emissiveIntensity: dormant ? 0.18 : 0.72 + Math.min(0.8, organism.energy * 0.32),
-          roughness: 0.24,
-          metalness: 0.08,
-          clearcoat: 0.7,
-          clearcoatRoughness: 0.25,
-          transparent: true,
-          opacity: dormant ? 0.35 : 0.94,
-        }),
-      );
-      core.castShadow = true;
-      core.userData.organismId = organism.id;
-      group.add(core);
-      runtime.selectable.push(core);
-
-      const membrane = new THREE.Mesh(
-        new THREE.IcosahedronGeometry(coreRadius * 1.42, 2),
-        new THREE.MeshBasicMaterial({ color, wireframe: true, transparent: true, opacity: dormant ? 0.08 : 0.22, depthWrite: false }),
-      );
-      membrane.userData.organismId = organism.id;
-      group.add(membrane);
+      const dna = createDnaHelix(color, organismBornAt);
+      dna.userData.phase = hashUnit(organism.lineage, 31) * Math.PI * 2;
+      dna.userData.organismId = organism.id;
+      group.add(dna);
 
       const attachmentPoints: THREE.Vector3[] = [];
       organismCells.forEach((cell, cellIndex) => {
-        const count = organismCells.length;
-        const vertical = 1 - 2 * (cellIndex + 0.5) / Math.max(1, count);
-        const radial = Math.sqrt(Math.max(0, 1 - vertical * vertical));
-        const angle = cellIndex * 2.399963 + hashUnit(cell.id, 8) * 0.8;
-        const orbit = coreRadius * (1.65 + (cellIndex % 3) * 0.18);
-        const cellPosition = new THREE.Vector3(
-          Math.cos(angle) * radial * orbit,
-          vertical * orbit,
-          Math.sin(angle) * radial * orbit,
-        );
+        const parentIndex = cellIndex === 0 ? 0 : Math.floor((cellIndex - 1) / 2);
+        const parentPosition = attachmentPoints[parentIndex] ?? new THREE.Vector3();
+        const angle = hashUnit(cell.id, 8) * Math.PI * 2 + organism.heading;
+        const vertical = (hashUnit(cell.id, 18) - 0.43) * 1.15;
+        const direction = new THREE.Vector3(Math.cos(angle), vertical, Math.sin(angle)).normalize();
+        const branchLength = cellIndex === 0
+          ? 0
+          : 0.34 + hashUnit(cell.id, 28) * 0.31 + Math.min(0.2, Math.sqrt(cellIndex) * 0.023);
+        const cellPosition = cellIndex === 0
+          ? new THREE.Vector3()
+          : parentPosition.clone().add(direction.multiplyScalar(branchLength));
         attachmentPoints.push(cellPosition);
-        const cellGrowth = Math.min(1, 0.35 + cell.age_steps / 45);
-        const cellRadius = (0.075 + Math.min(0.07, cell.activation * 0.08)) * cellGrowth;
-        const cellMesh = new THREE.Mesh(
-          new THREE.SphereGeometry(cellRadius, 14, 10),
-          new THREE.MeshStandardMaterial({
+
+        const cellBornAt = firstSeen(`cell:${organism.id}:${cell.id}`, Math.min(cellIndex, 26) * 92);
+        const cellRadius = 0.09 + Math.min(0.058, cell.activation * 0.06) + Math.min(0.02, cell.energy * 0.009);
+        const cellGroup = new THREE.Group();
+        cellGroup.position.copy(parentPosition);
+        cellGroup.scale.setScalar(0.001);
+        cellGroup.userData = {
+          kind: 'cell',
+          organismId: organism.id,
+          bornAt: cellBornAt,
+          startPosition: parentPosition.clone(),
+          targetPosition: cellPosition.clone(),
+          activation: cell.activation,
+          phase: hashUnit(cell.id, 38) * Math.PI * 2,
+        };
+
+        const cellShell = new THREE.Mesh(
+          organicGeometry(cellRadius, cell.id, 2),
+          new THREE.MeshPhysicalMaterial({
             color,
             emissive: color,
-            emissiveIntensity: 1 + cell.activation * 2.5,
-            roughness: 0.32,
+            emissiveIntensity: 0.18 + cell.activation * 0.55,
+            roughness: 0.16,
+            clearcoat: 0.9,
+            clearcoatRoughness: 0.22,
+            transmission: dormant ? 0.05 : 0.22,
+            thickness: 0.18,
             transparent: true,
-            opacity: dormant ? 0.3 : 0.9,
+            opacity: dormant ? 0.12 : 0.34,
+            depthWrite: false,
+            side: THREE.DoubleSide,
           }),
         );
-        cellMesh.position.copy(cellPosition);
-        cellMesh.userData.organismId = organism.id;
-        group.add(cellMesh);
-        runtime.selectable.push(cellMesh);
-        addLine(group, [new THREE.Vector3(), cellPosition], color, dormant ? 0.1 : 0.32 + cell.activation * 0.24);
+        cellShell.userData.organismId = organism.id;
+        cellGroup.add(cellShell);
+        runtime.selectable.push(cellShell);
+
+        const nucleus = new THREE.Mesh(
+          organicGeometry(cellRadius * 0.38, `${cell.id}:nucleus`, 1),
+          new THREE.MeshStandardMaterial({
+            color: 0xeaffff,
+            emissive: color,
+            emissiveIntensity: 1.5 + cell.activation * 3.2,
+            roughness: 0.32,
+            transparent: true,
+            opacity: dormant ? 0.35 : 0.92,
+          }),
+        );
+        nucleus.userData.organismId = organism.id;
+        cellGroup.add(nucleus);
+        runtime.selectable.push(nucleus);
+
+        const cytoplasm = new THREE.Mesh(
+          new THREE.SphereGeometry(cellRadius * 1.5, 12, 8),
+          new THREE.MeshBasicMaterial({
+            color,
+            transparent: true,
+            opacity: dormant ? 0.012 : 0.045,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+          }),
+        );
+        cellGroup.add(cytoplasm);
+        group.add(cellGroup);
+        if (cellIndex > 0) {
+          const tissueCurve = tissueSegment(
+            group,
+            parentPosition,
+            cellPosition,
+            color,
+            dormant ? 0.1 : 0.3 + cell.activation * 0.24,
+            cellBornAt,
+            cell.id,
+          );
+          const signal = new THREE.Mesh(
+            new THREE.SphereGeometry(0.018 + cell.activation * 0.012, 8, 6),
+            new THREE.MeshStandardMaterial({
+              color: 0xf0ffff,
+              emissive: color,
+              emissiveIntensity: 4 + cell.activation * 4,
+              transparent: true,
+              opacity: dormant ? 0.18 : 0.92,
+              depthWrite: false,
+            }),
+          );
+          signal.userData = {
+            kind: 'signal',
+            bornAt: cellBornAt,
+            curve: tissueCurve,
+            speed: 0.22 + cell.activation * 0.42,
+            phase: hashUnit(cell.id, 78),
+          };
+          group.add(signal);
+        }
       });
 
-      if (attachmentPoints.length > 2) {
-        addLine(group, [...attachmentPoints, attachmentPoints[0]], color, dormant ? 0.06 : 0.16);
+      const tissueRadius = Math.max(0.34, ...attachmentPoints.map((point) => point.length()));
+      if (organismCells.length >= 3) {
+        const membraneOpacity = dormant ? 0.035 : 0.085;
+        const membrane = new THREE.Mesh(
+          organicGeometry(tissueRadius + 0.2, `${organism.id}:membrane`, 3),
+          new THREE.MeshPhysicalMaterial({
+            color,
+            emissive: color,
+            emissiveIntensity: 0.12,
+            roughness: 0.18,
+            clearcoat: 0.75,
+            transmission: 0.35,
+            thickness: 0.25,
+            transparent: true,
+            opacity: 0,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+          }),
+        );
+        membrane.scale.setScalar(0.001);
+        membrane.userData = {
+          kind: 'membrane',
+          organismId: organism.id,
+          bornAt: organismBornAt,
+          targetOpacity: membraneOpacity,
+          targetScale: new THREE.Vector3(
+            0.88 + hashUnit(organism.id, 81) * 0.22,
+            0.72 + hashUnit(organism.id, 82) * 0.2,
+            0.86 + hashUnit(organism.id, 83) * 0.25,
+          ),
+          phase: hashUnit(organism.id, 48) * Math.PI,
+        };
+        group.add(membrane);
+        runtime.selectable.push(membrane);
       }
-
-      const aura = new THREE.Mesh(
-        new THREE.SphereGeometry(coreRadius * (2.2 + Math.min(0.9, organism.energy * 0.35)), 18, 12),
-        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: dormant ? 0.015 : 0.035, side: THREE.BackSide, depthWrite: false }),
-      );
-      group.add(aura);
 
       if (selectedId === organism.id) {
         const selection = new THREE.Mesh(
-          new THREE.TorusGeometry(coreRadius * 1.95, 0.025, 8, 64),
+          new THREE.TorusGeometry(tissueRadius + 0.42, 0.025, 8, 64),
           new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95 }),
         );
         selection.rotation.x = Math.PI / 2;
         group.add(selection);
       }
 
-      const label = textSprite(`${organism.id}  ·  ${organismCells.length} cells`, organism.color);
-      label.position.set(0, coreRadius * 2.5 + 0.32, 0);
-      label.scale.multiplyScalar(selectedId === organism.id ? 1.14 : 0.88);
-      group.add(label);
+      if (selectedId === organism.id) {
+        const label = textSprite(`${organism.id}  ·  ${cellCount} cells`, organism.color);
+        label.position.set(0, tissueRadius + 0.62, 0);
+        label.scale.multiplyScalar(1.04);
+        group.add(label);
+      }
       content.add(group);
     });
 
     state.colonies.forEach((colony, colonyIndex) => {
+      const colonyBornAt = firstSeen(`colony:${colony.id}`);
       const members = colony.member_ids.map((id) => organismPositions.get(id)).filter(Boolean) as THREE.Vector3[];
       if (members.length < 2) return;
       const center = members.reduce((sum, point) => sum.add(point), new THREE.Vector3()).multiplyScalar(1 / members.length);
       const maxDistance = Math.max(...members.map((point) => point.distanceTo(center)));
       addLine(content, [...members, members[0]], 0xb791ff, 0.52);
       members.forEach((member) => addLine(content, [center, member], 0xb791ff, 0.22));
-      const membrane = new THREE.Mesh(
-        new THREE.SphereGeometry(Math.max(0.8, maxDistance + 0.75), 24, 16),
-        new THREE.MeshBasicMaterial({ color: 0xa985ff, wireframe: true, transparent: true, opacity: 0.075, depthWrite: false }),
-      );
-      membrane.position.copy(center);
-      membrane.scale.y = 0.48;
-      content.add(membrane);
       const ring = new THREE.Mesh(
         new THREE.TorusGeometry(Math.max(0.65, maxDistance + 0.42), 0.018 + colony.synergy * 0.08, 8, 96),
-        new THREE.MeshBasicMaterial({ color: 0xb996ff, transparent: true, opacity: 0.55 }),
+        new THREE.MeshBasicMaterial({ color: 0xb996ff, transparent: true, opacity: 0 }),
       );
       ring.position.copy(center);
       ring.position.y -= 0.28 + colonyIndex * 0.015;
       ring.rotation.x = Math.PI / 2;
+      ring.userData = {
+        kind: 'colony',
+        bornAt: colonyBornAt,
+        targetOpacity: 0.55,
+        targetScale: new THREE.Vector3(1, 1, 1),
+      };
       content.add(ring);
     });
 
     state.memories.forEach((memory, memoryIndex) => {
+      const memoryBornAt = firstSeen(`memory:${memory.id}`);
       const members = memory.member_ids.map((id) => organismPositions.get(id)).filter(Boolean) as THREE.Vector3[];
       if (!members.length) return;
       const center = members.reduce((sum, point) => sum.add(point), new THREE.Vector3()).multiplyScalar(1 / members.length);
-      const angle = memoryIndex * 2.399963;
-      const orbit = 0.5 + (memoryIndex % 4) * 0.18;
+      const angle = hashUnit(memory.id, 91) * Math.PI * 2;
+      const orbit = 0.42 + hashUnit(memory.id, 92) * 1.55;
       const position = new THREE.Vector3(
         center.x + Math.cos(angle) * orbit,
-        MEMORY_Y + (memoryIndex % 5) * 0.17,
+        MEMORY_Y - 0.75 + hashUnit(memory.id, 93) * 1.6,
         center.z + Math.sin(angle) * orbit,
       );
-      const ring = new THREE.Mesh(
-        new THREE.TorusGeometry(0.12 + memory.stability * 0.16, 0.025, 10, 36),
-        new THREE.MeshStandardMaterial({
+      const engram = new THREE.Mesh(
+        organicGeometry(0.035 + memory.stability * 0.055, `${memory.id}:engram`, 1),
+        new THREE.MeshPhysicalMaterial({
           color: 0x79e6b0,
           emissive: 0x1ecb7c,
-          emissiveIntensity: 1.5 + Math.min(2.5, memory.recall_count * 0.025),
+          emissiveIntensity: 1.7 + Math.min(3.8, memory.recall_count * 0.035),
+          roughness: 0.22,
+          clearcoat: 0.7,
           transparent: true,
-          opacity: 0.48 + memory.stability * 0.45,
+          opacity: 0.46 + memory.stability * 0.42,
         }),
       );
-      ring.position.copy(position);
-      ring.rotation.x = Math.PI / 2;
-      ring.userData = { kind: 'memory', phase: angle, speed: 0.1 + (memoryIndex % 3) * 0.025 };
-      content.add(ring);
-      addLine(content, [position, center], 0x75e2aa, 0.1 + memory.stability * 0.16);
+      engram.position.copy(position);
+      engram.scale.setScalar(0.001);
+      engram.userData = {
+        kind: 'memory',
+        bornAt: memoryBornAt,
+        baseY: position.y,
+        phase: angle,
+        speed: 0.32 + hashUnit(memory.id, 94) * 0.34,
+      };
+      content.add(engram);
+      if (memoryIndex % 12 === 0) addLine(content, [position, center], 0x75e2aa, 0.08 + memory.stability * 0.12);
     });
 
     state.informationPatches.forEach((patch, patchIndex) => {
@@ -530,7 +835,7 @@ export function LivingArchitecture3D({ state, selectedId, onSelect }: Props) {
   function resetView() {
     const runtime = runtimeRef.current;
     if (!runtime) return;
-    runtime.camera.position.set(12.5, 9.2, 14.5);
+    runtime.camera.position.set(9.8, 7.1, 11.2);
     runtime.controls.target.set(0, 0.1, 0);
     runtime.controls.update();
   }
@@ -564,6 +869,9 @@ export function LivingArchitecture3D({ state, selectedId, onSelect }: Props) {
       <span className="memory-layer"><i />MEMORY <b>{state.memories.length}</b></span>
       <span className="organism-layer"><i />ORGANISMS <b>{state.organisms.length}</b></span>
       <span className="micro-layer"><i />MICRO LAYER <b>{state.microSignatures.length}</b></span>
+    </div>
+    <div ref={morphRef} className="architecture-morphogenesis" data-phase="mature" aria-live="polite">
+      <i /><span><b>ORGANIC NETWORK</b><small>Awaiting a morphogenesis event</small></span>
     </div>
     <div ref={hostRef} className="architecture-viewport">
       {webglError && <div className="architecture-error">3D acceleration is unavailable in this browser.</div>}

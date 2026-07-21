@@ -84,6 +84,14 @@
 .architecture-layer-map .memory-layer i { color: #79e6b0; background: #79e6b0; }
 .architecture-layer-map .organism-layer i { color: #64d9ff; background: #64d9ff; }
 .architecture-layer-map .micro-layer i { color: #ffb45c; background: #ffb45c; border-radius: 2px; }
+.architecture-morphogenesis { position: absolute; z-index: 4; top: 62px; left: 12px; display: grid; grid-template-columns: 9px auto; align-items: center; gap: 9px; min-width: 206px; padding: 8px 10px; border: 1px solid #69e3ff2e; border-radius: 7px; background: linear-gradient(105deg, #061723e8, #07101bd1); box-shadow: 0 10px 32px #0008, inset 0 0 24px #4edcff0b; color: #84a8ba; font: 8px 'DM Mono', monospace; letter-spacing: .45px; pointer-events: none; backdrop-filter: blur(10px); }
+.architecture-morphogenesis i { width: 8px; height: 8px; border: 1px solid #77e8ff; border-radius: 50%; background: #46d8ff42; box-shadow: 0 0 12px #55ddff; }
+.architecture-morphogenesis span { display: grid; gap: 2px; }
+.architecture-morphogenesis b { color: #baf4ff; font-weight: 500; letter-spacing: .75px; }
+.architecture-morphogenesis small { color: inherit; font: inherit; }
+.architecture-morphogenesis[data-phase='growing'] { border-color: #6de8ff6b; box-shadow: 0 10px 32px #0008, inset 0 0 28px #4edcff18; }
+.architecture-morphogenesis[data-phase='growing'] i { animation: morphogenesis-pulse 1.15s ease-in-out infinite; }
+@keyframes morphogenesis-pulse { 50% { transform: scale(1.7); background: #c4f9ff; box-shadow: 0 0 20px #5de4ff; } }
 .architecture-instructions { position: absolute; z-index: 3; right: 13px; bottom: 12px; color: #7f9aaf; font: 8px 'DM Mono', monospace; letter-spacing: .35px; pointer-events: none; text-shadow: 0 1px 8px #000; }
 .architecture-selection { position: absolute; z-index: 4; left: 12px; bottom: 12px; display: grid; grid-template-columns: 11px auto auto; align-items: center; gap: 9px; max-width: min(72%, 420px); padding: 8px 10px; border: 1px solid #88e7ff35; border-radius: 8px; background: #06131ee8; box-shadow: 0 8px 30px #0008, inset 0 0 18px #5bdfff0b; backdrop-filter: blur(12px); pointer-events: none; }
 .architecture-selection > i { width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 10px currentColor; }
@@ -108,5 +116,10 @@
   .architecture-layer-map { top: 93px; right: 8px; }
   .architecture-layer-map span { min-width: 108px; padding: 5px 6px; font-size: 7px; }
   .architecture-instructions { display: none; }
+  .architecture-morphogenesis { top: 93px; left: 8px; min-width: 180px; }
   .architecture-selection { right: 8px; left: 8px; bottom: 8px; max-width: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .architecture-morphogenesis[data-phase='growing'] i { animation: none; }
 }

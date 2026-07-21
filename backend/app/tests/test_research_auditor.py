@@ -115,6 +115,7 @@ def test_version_snapshot_excludes_external_audit_recursion_and_preserves_proven
 
 def test_structured_gpt_audit_uses_responses_api_without_tools_or_storage(monkeypatch) -> None:
     monkeypatch.setenv("OPENAI_MODEL", "gpt-5.6-sol")
+    monkeypatch.setenv("OPENAI_AUDIT_REASONING_EFFORT", "low")
     client = FakeClient()
     auditor = ResearchAuditor(client=client)  # type: ignore[arg-type]
     engine = ColonyMindEngine()
@@ -125,8 +126,9 @@ def test_structured_gpt_audit_uses_responses_api_without_tools_or_storage(monkey
     request = client.responses.kwargs
 
     assert request["model"] == "gpt-5.6-sol"
-    assert request["reasoning"] == {"effort": "medium"}
+    assert request["reasoning"] == {"effort": "low"}
     assert request["text_format"] is ResearchAuditAnalysis
+    assert request["max_output_tokens"] == 3000
     assert request["store"] is False
     assert "tools" not in request
     assert "retinaPixels" not in str(request["input"])
@@ -137,3 +139,22 @@ def test_structured_gpt_audit_uses_responses_api_without_tools_or_storage(monkey
 
     cached = auditor.analyze(snapshot, "cm_test_session")
     assert cached["cached"] is True
+
+
+def test_auditor_enforces_shared_hourly_capacity(monkeypatch) -> None:
+    monkeypatch.setenv("OPENAI_AUDIT_MAX_CALLS_PER_HOUR", "1")
+    client = FakeClient()
+    auditor = ResearchAuditor(client=client)  # type: ignore[arg-type]
+    first = ColonyMindEngine(seed=11)
+    second = ColonyMindEngine(seed=12)
+    first.step(24)
+    second.step(24)
+
+    auditor.analyze(build_research_snapshot(first), "first-session")
+
+    try:
+        auditor.analyze(build_research_snapshot(second), "second-session")
+    except RuntimeError as error:
+        assert "hourly capacity" in str(error)
+    else:
+        raise AssertionError("Expected the shared audit capacity to be enforced")

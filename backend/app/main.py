@@ -294,9 +294,12 @@ def research_audit(session_id: SessionId) -> dict[str, Any]:
     try:
         result = research_auditor.analyze(snapshot, session_id)
     except RuntimeError as error:
-        if "OPENAI_API_KEY" in str(error):
+        detail = str(error)
+        if "OPENAI_API_KEY" in detail:
             raise HTTPException(status_code=503, detail="GPT-5.6 Research Auditor is not configured") from error
-        raise HTTPException(status_code=502, detail="GPT-5.6 returned an invalid research audit") from error
+        if "cooldown" in detail or "capacity" in detail or "busy" in detail:
+            raise HTTPException(status_code=429, detail=detail) from error
+        raise HTTPException(status_code=502, detail="GPT-5.6 is temporarily unavailable; retry the frozen audit shortly") from error
     except Exception as error:
         raise HTTPException(status_code=502, detail="GPT-5.6 Research Auditor is temporarily unavailable") from error
 

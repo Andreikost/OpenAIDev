@@ -13,7 +13,10 @@ type Props = {
 function readableError(error: unknown) {
   if (!(error instanceof Error)) return 'The research audit could not be completed.';
   if (error.message.includes('not configured')) return 'The GPT-5.6 auditor is not configured on this server.';
-  return 'GPT-5.6 could not audit this snapshot. The learner was not modified.';
+  if (error.message.includes('cooldown')) return error.message;
+  if (error.message.includes('capacity') || error.message.includes('busy')) return 'The auditor is protecting shared capacity. Retry shortly.';
+  if (error.message.includes('temporarily unavailable')) return 'GPT-5.6 timed out upstream. Your frozen snapshot is safe; retry the audit.';
+  return 'GPT-5.6 could not audit this snapshot. Your frozen snapshot is safe and the learner was not modified.';
 }
 
 export function ResearchAuditorPanel({ enabled, stepCount, audit, onBeforeAudit, onAudit }: Props) {
@@ -54,7 +57,7 @@ export function ResearchAuditorPanel({ enabled, stepCount, audit, onBeforeAudit,
       </button>
     </div>
 
-    {error && <p className="research-audit-error">{error}</p>}
+    {error && <p className="research-audit-error" role="alert">{error}</p>}
     {!audit && !error && <div className="research-audit-empty">
       <b>WHAT THE AUDITOR RETURNS</b>
       <span>Evidence-backed findings</span><span>Scientific risks</span><span>Three controlled next experiments</span><span>Publication readiness</span>

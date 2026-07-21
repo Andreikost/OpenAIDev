@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import threading
-from collections import OrderedDict
+import time
+from collections import OrderedDict, deque
 from datetime import datetime, timezone
 from typing import Any, Literal
 
@@ -12,6 +14,9 @@ from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, Field
 
 from .core import ColonyMindEngine
+
+
+logger = logging.getLogger(__name__)
 
 
 class AuditModel(BaseModel):
@@ -289,10 +294,22 @@ def _usage_dict(response: Any) -> dict[str, int] | None:
 class ResearchAuditor:
     def __init__(self, client: OpenAI | None = None) -> None:
         self.model = os.getenv("OPENAI_MODEL", "gpt-5.6-sol")
-        self.reasoning_effort = os.getenv("OPENAI_REASONING_EFFORT", "medium")
+        self.reasoning_effort = os.getenv(
+            "OPENAI_AUDIT_REASONING_EFFORT",
+            os.getenv("OPENAI_REASONING_EFFORT", "low"),
+        )
+        self.timeout_seconds = float(os.getenv("OPENAI_AUDIT_TIMEOUT_SECONDS", "120"))
+        self.max_output_tokens = int(os.getenv("OPENAI_AUDIT_MAX_OUTPUT_TOKENS", "3000"))
+        self.max_calls_per_hour = int(os.getenv("OPENAI_AUDIT_MAX_CALLS_PER_HOUR", "24"))
+        self.session_cooldown_seconds = float(os.getenv("OPENAI_AUDIT_SESSION_COOLDOWN_SECONDS", "20"))
+        self.max_concurrent_calls = int(os.getenv("OPENAI_AUDIT_MAX_CONCURRENT_CALLS", "2"))
         self._client = client
         self._cache: OrderedDict[str, dict[str, Any]] = OrderedDict()
         self._cache_lock = threading.Lock()
+        self._budget_lock = threading.Lock()
+        self._call_times: deque[float] = deque()
+        self._session_call_times: OrderedDict[str, float] = OrderedDict()
+        self._slots = threading.BoundedSemaphore(max(1, self.max_concurrent_calls))
 
     @property
     def configured(self) -> bool:
@@ -300,8 +317,27 @@ class ResearchAuditor:
 
     def _openai(self) -> OpenAI:
         if self._client is None:
-            self._client = OpenAI(timeout=45.0, max_retries=1)
+            # One sufficiently long request is safer than two overlapping paid
+            # attempts that collectively exceed the reverse-proxy timeout.
+            self._client = OpenAI(timeout=self.timeout_seconds, max_retries=0)
         return self._client
+
+    def _reserve_call(self, session_id: str) -> None:
+        now = time.monotonic()
+        with self._budget_lock:
+            while self._call_times and now - self._call_times[0] >= 3600.0:
+                self._call_times.popleft()
+            previous = self._session_call_times.get(session_id)
+            if previous is not None and now - previous < self.session_cooldown_seconds:
+                retry_after = max(1, round(self.session_cooldown_seconds - (now - previous)))
+                raise RuntimeError(f"Research audit cooldown active; retry in {retry_after} seconds")
+            if len(self._call_times) >= self.max_calls_per_hour:
+                raise RuntimeError("Research audit hourly capacity reached; retry later")
+            self._call_times.append(now)
+            self._session_call_times[session_id] = now
+            self._session_call_times.move_to_end(session_id)
+            while len(self._session_call_times) > 256:
+                self._session_call_times.popitem(last=False)
 
     def cached_for_state(self, state_hash: str) -> dict[str, Any] | None:
         cache_key = f"{self.model}:{state_hash}"
@@ -322,16 +358,34 @@ class ResearchAuditor:
         if not self.configured:
             raise RuntimeError("OPENAI_API_KEY is not configured on the backend")
 
+        self._reserve_call(session_id)
+        if not self._slots.acquire(blocking=False):
+            raise RuntimeError("Research auditor is busy; retry shortly")
+
         safety_identifier = hashlib.sha256(session_id.encode("utf-8")).hexdigest()[:32]
-        response = self._openai().responses.parse(
-            model=self.model,
-            reasoning={"effort": self.reasoning_effort},
-            instructions=SYSTEM_INSTRUCTIONS,
-            input=json.dumps(snapshot, separators=(",", ":"), ensure_ascii=False),
-            text_format=ResearchAuditAnalysis,
-            store=False,
-            safety_identifier=f"cm_{safety_identifier}",
-        )
+        started = time.monotonic()
+        try:
+            response = self._openai().responses.parse(
+                model=self.model,
+                reasoning={"effort": self.reasoning_effort},
+                instructions=SYSTEM_INSTRUCTIONS,
+                input=json.dumps(snapshot, separators=(",", ":"), ensure_ascii=False),
+                text_format=ResearchAuditAnalysis,
+                max_output_tokens=self.max_output_tokens,
+                store=False,
+                safety_identifier=f"cm_{safety_identifier}",
+            )
+        except Exception as error:
+            logger.warning(
+                "Research audit upstream failure type=%s status=%s request_id=%s elapsed=%.2fs",
+                type(error).__name__,
+                getattr(error, "status_code", None),
+                getattr(error, "request_id", None),
+                time.monotonic() - started,
+            )
+            raise RuntimeError("GPT-5.6 audit request failed; retry shortly") from error
+        finally:
+            self._slots.release()
         analysis = response.output_parsed
         if analysis is None:
             raise RuntimeError("GPT-5.6 did not return a valid structured research audit")
@@ -343,6 +397,7 @@ class ResearchAuditor:
             "provider": "OpenAI",
             "model": getattr(response, "model", self.model),
             "requestedModel": self.model,
+            "latencySeconds": round(time.monotonic() - started, 2),
             "snapshotStateHash": snapshot_hash,
             "cached": False,
             "modelModified": False,

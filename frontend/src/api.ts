@@ -47,5 +47,6 @@ export const api = {
   experiments: () => request<ExperimentRecord[]>('/api/experiments'),
   createExperiment: (instruction: string, parentId?: string) => request<ExperimentRecord>('/api/experiments', { method: 'POST', body: JSON.stringify({ instruction, parentId: parentId || null }) }),
   runExperiment: (id: string) => request<ExperimentRecord>(`/api/experiments/${id}/run`, { method: 'POST' }),
+  auditExperiment: (id: string) => request<ExperimentRecord>(`/api/experiments/${id}/audit`, { method: 'POST' }),
   deleteExperiment: (id: string) => request<{ deleted: boolean; baselinePreserved: boolean }>(`/api/experiments/${id}`, { method: 'DELETE' }),
 };

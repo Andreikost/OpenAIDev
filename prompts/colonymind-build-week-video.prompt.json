@@ -210,15 +210,15 @@
       "voiceover": "The Experiment Studio turns that diagnosis plus human instructions into an allowlisted protocol. It can replicate seeds, vary nuisances, add shapes, or test bounded copies of learning policy. Every version runs in a fresh engine. Baseline v1 stays locked, and no GPT-generated code is executed."
     },
     {
-      "timecode": "02:16-02:36",
+      "timecode": "02:16-02:28",
       "purpose": "Satisfy and humanize Codex collaboration",
       "visual": "Use a clean timeline of dated repository commits and fast crops of tests, architecture docs, and deployment verification. Do not show terminals containing credentials.",
       "camera_edit": "Five 2-second evidence shots connected by a thin cyan timeline. Return to the live architecture for the final sentence.",
       "overlay": "BUILT WITH CODEX + GPT-5.6 DURING BUILD WEEK",
-      "voiceover": "Codex accelerated architecture, implementation, tests, visualization, report analysis, and VPS deployment throughout Build Week. I made the scientific and product decisions: long-lived organisms, open-ended growth, the micro-signature layer, and an immutable baseline."
+      "voiceover": "Codex accelerated architecture, implementation, tests, visualization, documentation, and deployment. I made the core scientific, product, and design decisions."
     },
     {
-      "timecode": "02:36-02:46",
+      "timecode": "02:28-02:46",
       "purpose": "Credible impact and close",
       "visual": "Slow orbit around the most legible living architecture state. Transition from the three simple shapes toward abstract outlines suggesting more complex visual patches, clearly labeled future work.",
       "camera_edit": "Reduce music intensity, leave a half-second of visual breathing room before the end card.",

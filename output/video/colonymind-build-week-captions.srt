@@ -1,0 +1,39 @@
+1
+00:00:00,000 --> 00:00:08,000
+What if a neural network did not begin fully built - but grew only when information demanded it?
+
+2
+00:00:08,000 --> 00:00:25,000
+ColonyMind is a label-free visual learner that treats residual information as food. It earns new cells, small organism networks, and colonies only while unfamiliar structure remains undigested.
+
+3
+00:00:25,000 --> 00:00:48,000
+Here, nature is a design language, not a biological claim. Information is food. Cells are adaptive units. Organisms are compact experts. Micro-signatures digest fine detail. Useful experts form colonies, and familiar structure becomes memory. Novel residuals sustain growth; digested input should not.
+
+4
+00:00:48,000 --> 00:01:05,000
+A conventional model largely chooses capacity before training. ColonyMind explores a demand-driven alternative: grow structure where unexplained information persists, cooperate where it helps, and reuse consolidated memory. Every organism shown here comes from live engine state.
+
+5
+00:01:05,000 --> 00:01:28,000
+Training never receives semantic labels. Labels live only in a frozen read-only evaluator. Across five seeds and 360 balanced held-out samples, purity was 1.0, mean NMI 0.9699, and mean ARI 0.9641. Every evaluator hash was preserved. These are synthetic-shape results - not a claim of general camera vision.
+
+6
+00:01:28,000 --> 00:01:55,000
+GPT-5.6 acts as an external research auditor through the OpenAI Responses API and Structured Outputs. It sees a frozen aggregate snapshot - never raw pixels, cell prototypes, tools, or a learning endpoint. It challenges the evidence, exposes scientific risks, and proposes the next controlled experiment.
+
+7
+00:01:55,000 --> 00:02:16,000
+The Experiment Studio turns that diagnosis plus human instructions into an allowlisted protocol. It can replicate seeds, vary nuisances, add shapes, or test bounded copies of learning policy. Every version runs in a fresh engine. Baseline v1 stays locked, and no GPT-generated code is executed.
+
+8
+00:02:16,000 --> 00:02:28,000
+Codex accelerated architecture, implementation, tests, visualization, documentation, and deployment. I made the core scientific, product, and design decisions.
+
+9
+00:02:28,000 --> 00:02:46,000
+Shapes are the wind tunnel, not the destination. ColonyMind tests whether demand-driven structure can avoid unnecessary capacity and adaptation. Today we measure proxies; next, matched baselines must measure time, memory, compute, and physical energy directly.
+
+10
+00:02:46,000 --> 00:02:50,000
+Explore the living system and inspect every claim in the open repository.

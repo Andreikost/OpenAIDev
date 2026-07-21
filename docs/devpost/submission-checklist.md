@@ -4,7 +4,7 @@
 
 - Project name: `ColonyMind`
 - Category: `Education`
-- Tagline: `A self-organizing vision architecture that learns more with less.`
+- Elevator pitch: `Watch a label-free visual learner grow cells into specialist colonies when information remains undigested—and turn familiar patterns into memory instead of more structure.`
 - Thumbnail: `assets/colonymind-devpost-thumbnail.png`
 - Public domain: `https://openaidev.automationfreelancer.com`
 - Repository: `https://github.com/Andreikost/OpenAIDev`

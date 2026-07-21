@@ -5,8 +5,9 @@
 The ColonyMind application, product experience, organism-network abstraction,
 colony-of-organisms layer, resource-aware comparison, evidence reports, tests,
 documentation, and deployment under `openaidev.automationfreelancer.com` are
-Build Week deliverables. A GPT-5.6 curriculum and explanation layer is a
-planned Build Week extension, not a P0 claim until it is implemented and tested.
+Build Week deliverables. The GPT-5.6 Research Auditor is a shipped Build Week
+extension: it interprets a frozen aggregate evidence snapshot and cannot train,
+route, grow, archive, label, or otherwise modify the learner.
 
 ## Pre-existing references
 

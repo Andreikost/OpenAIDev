@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from .core import ColonyMindEngine
+from .research_auditor import ResearchAuditor, build_research_snapshot
 
 
 class StepRequest(BaseModel):
@@ -34,6 +35,7 @@ app = FastAPI(title="ColonyMind API", version="0.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 lock = threading.RLock()
 engines: OrderedDict[str, ColonyMindEngine] = OrderedDict()
+research_auditor = ResearchAuditor()
 MAX_SESSIONS = 64
 SessionId = Annotated[
     str,
@@ -56,7 +58,14 @@ def engine_for(session_id: str) -> ColonyMindEngine:
 @app.get("/health")
 def health() -> dict[str, Any]:
     with lock:
-        return {"ok": True, "service": "colonymind-api", "activeSessions": len(engines), "sessionIsolation": True}
+        return {
+            "ok": True,
+            "service": "colonymind-api",
+            "activeSessions": len(engines),
+            "sessionIsolation": True,
+            "researchAuditorConfigured": research_auditor.configured,
+            "researchAuditorModel": research_auditor.model,
+        }
 
 
 @app.get("/api/state")
@@ -106,4 +115,42 @@ def ablate(payload: AblationRequest, session_id: SessionId) -> dict[str, Any]:
 @app.get("/api/report")
 def report(session_id: SessionId) -> dict[str, Any]:
     with lock:
-        return engine_for(session_id).report()
+        engine = engine_for(session_id)
+        performance_report = engine.report()
+        state_hash = engine.state_hash()
+    cached_audit = research_auditor.cached_for_state(state_hash)
+    performance_report["externalResearchAudit"] = cached_audit
+    return performance_report
+
+
+@app.post("/api/research-audit")
+def research_audit(session_id: SessionId) -> dict[str, Any]:
+    # Materialize an immutable, aggregate-only snapshot while the engine is
+    # locked. The network call receives no engine reference and runs after the
+    # lock is released, so GPT-5.6 has no path back into the learning loop.
+    with lock:
+        engine = engine_for(session_id)
+        state_hash_before = engine.state_hash()
+        snapshot = build_research_snapshot(engine)
+        state_hash_after = engine.state_hash()
+    if state_hash_before != state_hash_after:
+        raise HTTPException(status_code=500, detail="Research snapshot changed the learner state")
+
+    try:
+        result = research_auditor.analyze(snapshot, session_id)
+    except RuntimeError as error:
+        if "OPENAI_API_KEY" in str(error):
+            raise HTTPException(status_code=503, detail="GPT-5.6 Research Auditor is not configured") from error
+        raise HTTPException(status_code=502, detail="GPT-5.6 returned an invalid research audit") from error
+    except Exception as error:
+        raise HTTPException(status_code=502, detail="GPT-5.6 Research Auditor is temporarily unavailable") from error
+
+    with lock:
+        current_hash = engine_for(session_id).state_hash()
+    return {
+        **result,
+        "snapshotExtractionHashBefore": state_hash_before,
+        "snapshotExtractionHashAfter": state_hash_after,
+        "liveStateHashAtResponse": current_hash,
+        "liveStateAdvancedDuringAudit": current_hash != state_hash_after,
+    }

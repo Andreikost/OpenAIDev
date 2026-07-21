@@ -57,9 +57,11 @@ def test_novel_unlabeled_stimuli_can_form_a_colony() -> None:
     engine = ColonyMindEngine(seed=20260718)
     state = engine.step(240)
     assert state["metrics"]["residentOrganisms"] >= 2
-    assert state["metrics"]["activeColonies"] >= 1
+    assert state["metrics"]["microColonies"] >= 1
     organism_ids = {organism["id"] for organism in state["organisms"]}
     assert all(set(colony["member_ids"]).issubset(organism_ids) for colony in state["colonies"])
+    micro_ids = {micro["id"] for micro in state["microSignatures"]}
+    assert all(set(colony["member_ids"]).issubset(micro_ids) for colony in state["microColonies"])
 
 
 def test_every_resident_organism_ages_even_when_it_does_not_win() -> None:
@@ -112,14 +114,15 @@ def test_fully_digested_information_becomes_memory_and_stops_growth() -> None:
     engine.step(1)
     organism = next(iter(engine.organisms.values()))
     vector = np.asarray(organism.specialization)
+    intermediate = engine._intermediate_signature(vector, learn=False)[0]
     organism.digestion_evidence = engine.memory_evidence_required
-    memory = engine._consolidate_or_recall_memory(organism, vector, 0.01)
+    memory = engine._consolidate_or_recall_memory(organism, vector, intermediate, 0.01)
     cells_before = len(engine.cells)
     organisms_before = len(engine.organisms)
     organism.food_evidence = engine.residual_support_required + 10.0
     engine.residual_vectors[organism.id] = [vector.copy() for _index in range(8)]
 
-    engine._structural_review(vector, 0.01, organism, 0.0)
+    engine._structural_review(vector, intermediate, 0.01, organism, 0.0)
 
     assert memory is not None
     assert len(engine.memories) == 1
@@ -214,6 +217,31 @@ def test_retina_supports_filled_and_outline_stimuli() -> None:
     assert float(np.mean(np.abs(filled - outline))) > 0.12
 
 
+def test_intermediate_geometry_separates_circle_from_square_across_rotation() -> None:
+    engine = ColonyMindEngine(seed=42)
+    first_circle = engine._retina_for("circle", 0.0, 0.70, 0.02, 0.0, 0.03, -0.02, random.Random(7), "outline")
+    rotated_circle = engine._retina_for("circle", 1.17, 0.70, 0.02, 0.0, 0.03, -0.02, random.Random(8), "outline")
+    square = engine._retina_for("square", 0.61, 0.70, 0.02, 0.0, 0.03, -0.02, random.Random(9), "outline")
+
+    first_signature = engine._fine_detail_signature(first_circle)
+    rotated_signature = engine._fine_detail_signature(rotated_circle)
+    square_signature = engine._fine_detail_signature(square)
+
+    circle_distance = float(np.mean((first_signature - rotated_signature) ** 2))
+    square_distance = float(np.mean((first_signature - square_signature) ** 2))
+    assert circle_distance < square_distance * 0.35
+
+
+def test_persistent_intermediate_food_grows_label_free_specialists() -> None:
+    engine = ColonyMindEngine(seed=20260718)
+    state = engine.step(240)
+
+    assert state["metrics"]["microSignatures"] > 1
+    assert state["metrics"]["microDigestedDetails"] > 0
+    assert engine.event_totals.get("MICRO_SIGNATURE_BIRTH", 0) > 1
+    assert engine.event_totals.get("ORGANISM_BIRTH", 0) >= 3
+
+
 def test_information_habitat_spreads_different_retinal_inputs() -> None:
     engine = ColonyMindEngine(seed=42)
     coordinates = [engine._information_coordinates(engine._sample()[0]) for _ in range(36)]
@@ -270,7 +298,7 @@ def test_performance_report_contains_structure_and_drawing_evidence() -> None:
     before = engine.state_hash()
     report = engine.report()
 
-    assert report["schema"] == "colonymind.performance-report.v4"
+    assert report["schema"] == "colonymind.performance-report.v5"
     assert report["simulation"]["stateHash"] == before == engine.state_hash()
     assert report["performance"]["cells"]["resident"] == len(engine.cells)
     assert report["performance"]["cells"]["active"] <= len(engine.cells)
@@ -280,6 +308,7 @@ def test_performance_report_contains_structure_and_drawing_evidence() -> None:
     assert report["performance"]["population"]["lifecyclePolicy"]["minimumLifespan"] == 5_000
     assert report["performance"]["population"]["lifecyclePolicy"]["growthLimits"] is None
     assert "memories" in report["performance"]
+    assert report["performance"]["intermediateLayer"]["microSignatures"] > 0
     assert report["performance"]["colonies"]["active"] == len(engine.colonies)
     assert report["performance"]["structuralAdaptations"]["byType"]["CELL_BIRTH"] >= 1
     assert report["performance"]["drawAndAudit"]["trials"] == 1

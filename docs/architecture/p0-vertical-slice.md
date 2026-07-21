@@ -33,6 +33,8 @@ evidence-linked heuristic recommendations for the next experiment.
 ## Structure
 
 - Cells are adaptive feature prototypes.
+- Micro-signatures are label-free local edge, curvature, contrast, and texture
+  prototypes. Repeated coactivation binds them into intermediate colonies.
 - Organisms are small dynamic collections of cells with three lifecycle states:
   `young`, `mature`, and `dormant`.
 - Colonies are persistent pairs of complementary mature organisms.
@@ -47,6 +49,22 @@ evidence-linked heuristic recommendations for the next experiment.
   a persistent residual or an input vector sufficiently novel relative to the
   existing specializations. The decision uses only feature-vector distance;
   shape names are not available to the learner.
+
+## Intermediate micro-signature layer
+
+The retina is smoothed and divided into local receptive fields. Each field emits
+an orientation-spectrum and intensity descriptor. Online vector quantization
+digests a familiar descriptor or creates a micro-signature only after a cluster
+of similar residual details persists. Coactivation builds micro-colonies without
+semantic supervision.
+
+At the same time, rotation-invariant contour harmonics and radial edge alignment
+are combined with the micro-colony activity into a 32-dimensional intermediate
+signature. This layer is the routing food for concept organisms. If a detail
+cluster remains novel across four compatible observations, it may create a new
+organism directly; a familiar signature has no birth signal. This corrects the
+previous architecture, where concept growth depended only on pixel reconstruction
+error and circles could share a specialist with squares.
 
 ## P1 long-term memory lifecycle
 
@@ -70,7 +88,7 @@ reconstruction; all other organisms remain resident and retrievable.
 No organism can be archived during its first 5,000 lifetime steps. After that,
 archival still requires all of the following evidence: long inactivity,
 sustained negative value, a nearly duplicate resident specialization, and a
-non-positive replay-buffer ablation. The JSON v4 report separates processing
+non-positive replay-buffer ablation. The JSON v5 report separates processing
 from resident organisms/cells and records lifecycle state, age, wins,
 reactivations, policy thresholds, and the archive registry.
 
@@ -96,8 +114,9 @@ these memories with semantic shapes, but shape names never enter learning.
 - Colony synergy is deliberately simple and must be improved with multi-seed
   comparisons and stronger counterfactual attribution.
 - The evaluator currently reports purity. Standard NMI and ARI belong to P1.
-- The lifecycle prevents premature forgetting, but it does not by itself create
-  rotation/scale-invariant representations; that remains the next learning-quality experiment.
+- The intermediate representation is engineered but learned prototypes and
+  topology remain self-organizing. Future work should learn more of the invariant
+  transform itself and validate against natural camera data.
 - GPT-5.6 curriculum and explanation calls, camera input, and physical energy
   measurements are P1+ work and are absent from this release.
 

@@ -4,7 +4,7 @@ import json
 from types import SimpleNamespace
 
 from app.core import ColonyMindEngine
-from app.research_auditor import ResearchAuditAnalysis, ResearchAuditor, build_research_snapshot
+from app.research_auditor import ResearchAuditAnalysis, ResearchAuditor, build_experiment_research_snapshot, build_research_snapshot
 
 
 def sample_analysis() -> ResearchAuditAnalysis:
@@ -86,6 +86,31 @@ def test_snapshot_is_compact_read_only_and_excludes_sensitive_model_data() -> No
     assert "normalizedPixels" not in serialized
     assert '"prototype":' not in serialized.lower()
     assert len(serialized) < 20_000
+
+
+def test_version_snapshot_excludes_external_audit_recursion_and_preserves_provenance() -> None:
+    record = {
+        "id": "version-1",
+        "version": 1,
+        "status": "completed",
+        "proposal": {"hypothesis": "A controlled branch improves NMI.", "acceptance": {"minNmi": 0.7}},
+        "result": {
+            "protocol": {"trainingSteps": 480},
+            "kernel": {"mode": "derived_copy"},
+            "kernelProvenance": {"generatedCodeExecuted": False},
+            "aggregate": {"nmi": {"mean": 0.9}},
+            "criteria": [{"status": "passed"}],
+            "runs": [],
+            "baselinePreserved": True,
+            "externalAudit": {"should": "not be hashed recursively"},
+        },
+    }
+    snapshot = build_experiment_research_snapshot(record)
+
+    assert snapshot["schema"] == "colonymind-version-research-snapshot/v1"
+    assert snapshot["boundary"]["generatedCodeExecuted"] is False
+    assert snapshot["boundary"]["immutableBaselinePreserved"] is True
+    assert "externalAudit" not in str(snapshot)
 
 
 def test_structured_gpt_audit_uses_responses_api_without_tools_or_storage(monkeypatch) -> None:

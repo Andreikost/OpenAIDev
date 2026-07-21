@@ -11,9 +11,12 @@ from app.experiments import (
     ExperimentProposal,
     ExperimentProtocol,
     ExperimentRegistry,
+    _advance_engine_to,
+    evaluate_protocol,
     run_experiment,
 )
 from app.auth import AuthUser
+from app.variant_engine import KernelVariantSpec, create_variant_engine
 
 
 def sample_proposal() -> ExperimentProposal:
@@ -123,6 +126,60 @@ def test_isolated_runner_reports_nmi_ari_and_preserves_evaluator_state() -> None
     assert len(result["runs"]) == 2
     assert set(result["aggregate"]) == {"purity", "nmi", "ari", "fragmentation"}
     assert all(run["final"]["stateHashBefore"] == run["final"]["stateHashAfter"] for run in result["runs"])
+    assert all(run["actualTrainingSteps"] == 240 for run in result["runs"])
+    assert all(item["status"] == "passed" for item in result["criteria"])
+
+
+def test_advance_engine_chunks_requests_beyond_core_batch_limit() -> None:
+    engine = create_variant_engine(17, KernelVariantSpec())
+    advancement = _advance_engine_to(engine, 480)
+
+    assert engine.step_count == 480
+    assert advancement == {"requestedFrom": 0, "requestedTo": 480, "actualStep": 480, "engineCalls": 2}
+
+
+def test_extended_shape_vocabulary_is_balanced_and_read_only() -> None:
+    variant = KernelVariantSpec(shapes=["circle", "triangle", "square", "pentagon", "star", "cross"])
+    engine = create_variant_engine(23, variant)
+    engine.step(24)
+    protocol = sample_proposal().protocol
+    evaluation = evaluate_protocol(engine, protocol)
+
+    assert evaluation["sampleCount"] == 48
+    assert evaluation["shapeCounts"] == {shape: 8 for shape in variant.shapes}
+    assert evaluation["modelModified"] is False
+
+
+def test_matched_arms_keep_identical_stimuli_when_structural_rng_diverges() -> None:
+    control = create_variant_engine(31, KernelVariantSpec())
+    variant = create_variant_engine(31, KernelVariantSpec(mechanisms=["memory_gated_growth"]))
+    for _ in range(20):
+        variant.rng.random()
+
+    control_vector, control_public, control_label = control._sample()
+    variant_vector, variant_public, variant_label = variant._sample()
+
+    assert control_label == variant_label
+    assert control_public["rotation"] == variant_public["rotation"]
+    assert control_public["renderMode"] == variant_public["renderMode"]
+    assert (control_vector == variant_vector).all()
+
+
+def test_derived_kernel_runs_a_matched_policy_control() -> None:
+    data = sample_proposal().model_dump()
+    data["kernel"] = {
+        "mode": "derived_copy",
+        "shapes": ["circle", "triangle", "square"],
+        "parameterOverrides": {"microNoveltyThreshold": 0.016},
+        "changeSummary": ["Test a bounded micro-detail threshold."],
+    }
+    result = run_experiment(ExperimentProposal.model_validate(data))
+
+    assert result["controlAggregate"] is not None
+    assert result["comparison"] is not None
+    assert result["kernelProvenance"]["generatedCodeExecuted"] is False
+    assert result["kernelProvenance"]["appliedParameterOverrides"] == {"microNoveltyThreshold": 0.016}
+    assert result["baselinePreserved"] is True
 
 
 def test_anonymous_workspaces_are_ephemeral_and_isolated(monkeypatch) -> None:

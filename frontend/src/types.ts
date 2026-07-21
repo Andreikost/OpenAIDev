@@ -79,12 +79,32 @@ export type ExperimentProtocol = {
   nuisanceProfile: 'baseline' | 'rotation' | 'noise' | 'occlusion' | 'mixed';
   checkpoints: number[];
 };
+export type KernelParameterOverrides = {
+  organismBirthNovelty: number | null;
+  cellBirthNovelty: number | null;
+  digestionError: number | null;
+  memoryEvidenceRequired: number | null;
+  microNoveltyThreshold: number | null;
+  microSupportRequired: number | null;
+  intermediateBirthNovelty: number | null;
+  replayCapacity: number | null;
+};
+export type KernelVariantSpec = {
+  mode: 'baseline_copy' | 'derived_copy';
+  shapes: ('circle' | 'triangle' | 'square' | 'pentagon' | 'star' | 'cross')[];
+  parameterOverrides: KernelParameterOverrides;
+  mechanisms: ('adaptive_novelty_schedule' | 'memory_gated_growth')[];
+  changeSummary: string[];
+};
+export type ExperimentAcceptance = { minSeedPassRate: number; minPurity: number; minNmi: number; minAri: number; maxFragmentation: number };
 export type ExperimentProposal = {
   title: string;
   shortLabel: string;
   hypothesis: string;
   rationale: string;
   protocol: ExperimentProtocol;
+  kernel: KernelVariantSpec;
+  acceptance: ExperimentAcceptance;
   successCriteria: string[];
   changesFromParent: string[];
   judgeExplanation: string;
@@ -96,8 +116,17 @@ export type ExperimentResult = {
   baselineCommit: string;
   completedAt: string;
   protocol: ExperimentProtocol;
+  kernel: KernelVariantSpec;
+  kernelProvenance: { baseCoreSha256: string; variantSourceSha256: string; variantSpecSha256: string; executionClass: string; generatedCodeExecuted: false; stimulusStreamIsolated: true; appliedParameterOverrides: Record<string, number>; mechanisms: string[]; shapes: string[] };
   aggregate: { purity: MetricSummary; nmi: MetricSummary; ari: MetricSummary; fragmentation: MetricSummary };
-  runs: { seed: number; final: Record<string, number | string | boolean>; structure: Record<string, number>; resourceProxies: Record<string, number> }[];
+  runs: { seed: number; requestedTrainingSteps: number; actualTrainingSteps: number; final: Record<string, unknown>; structure: Record<string, number>; resourceProxies: Record<string, number> }[];
+  controlAggregate: { purity: MetricSummary; nmi: MetricSummary; ari: MetricSummary; fragmentation: MetricSummary } | null;
+  structureAggregate: Record<string, number>;
+  resourceAggregate: Record<string, number>;
+  comparison: { clustering: Record<string, { variant: number; control: number; delta: number }>; structure: Record<string, { variant: number; control: number; delta: number }>; resources: Record<string, { variant: number; control: number; delta: number }> } | null;
+  criteria: { id: string; status: 'passed' | 'failed' | 'not_measured'; label: string; observed: string; required: string }[];
+  success: boolean;
+  externalAudit?: ResearchAudit;
   baselinePreserved: boolean;
   interpretationBoundary: string;
 };

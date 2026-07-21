@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from app.main import app, engine_for, experiment_designer, research_auditor
+from app.main import app, engine_for, experiment_designer, experiment_registry, research_auditor
 from app.tests.test_experiments import sample_proposal
 
 
@@ -52,3 +52,57 @@ def test_anonymous_experiment_api_derives_from_current_audit(monkeypatch) -> Non
         deleted = client.delete(f"/api/experiments/{created['id']}", headers=headers)
         assert deleted.status_code == 200
         assert deleted.json()["baselinePreserved"] is True
+
+
+def test_completed_version_can_be_audited_and_drive_a_child_variant(monkeypatch) -> None:
+    session_id = "cm_version_audit_test"
+    workspace_id = "exp_version_audit_test"
+    headers = {"X-ColonyMind-Session": session_id, "X-Experiment-Workspace": workspace_id}
+    captured: dict[str, object] = {}
+
+    with TestClient(app) as client:
+        client.post("/api/step", headers=headers, json={"steps": 12}).raise_for_status()
+        state_hash = engine_for(session_id).state_hash()
+        monkeypatch.setattr(
+            research_auditor,
+            "cached_for_state",
+            lambda requested_hash: {"snapshotStateHash": state_hash, "analysis": {"verdict": "promising but preliminary"}} if requested_hash == state_hash else None,
+        )
+        monkeypatch.setattr(experiment_designer, "propose", lambda audit, instruction, parent=None: (sample_proposal(), None))
+        created = client.post("/api/experiments", headers=headers, json={"instruction": "replicate"}).json()
+        record = experiment_registry.get(workspace_id, None, created["id"])
+        assert record is not None
+        record.status = "completed"
+        record.result = {
+            "protocol": record.proposal.protocol.model_dump(),
+            "kernel": record.proposal.kernel.model_dump(),
+            "kernelProvenance": {"generatedCodeExecuted": False},
+            "aggregate": {"nmi": {"mean": 0.9}},
+            "criteria": [{"id": "steps", "status": "passed"}],
+            "runs": [],
+            "baselinePreserved": True,
+        }
+        experiment_registry.save(workspace_id, None, record)
+        version_audit = {"snapshotStateHash": "version-result", "analysis": {"verdict": "stable on current benchmark", "headline": "Replicated"}}
+        monkeypatch.setattr(research_auditor, "analyze", lambda snapshot, safety_id: version_audit)
+
+        audited = client.post(f"/api/experiments/{record.id}/audit", headers=headers)
+        assert audited.status_code == 200
+        assert audited.json()["result"]["externalAudit"] == version_audit
+
+        monkeypatch.setattr(research_auditor, "cached_for_state", lambda _state_hash: None)
+
+        def propose_from_parent(audit, instruction, parent=None):
+            captured["audit"] = audit
+            captured["parent"] = parent
+            return sample_proposal(), None
+
+        monkeypatch.setattr(experiment_designer, "propose", propose_from_parent)
+        child = client.post(
+            "/api/experiments",
+            headers=headers,
+            json={"instruction": "derive safely", "parentId": record.id},
+        )
+        assert child.status_code == 200
+        assert captured["audit"] == version_audit
+        assert isinstance(captured["parent"], dict)

@@ -27,7 +27,7 @@ from .experiments import (
     GenerateExperimentRequest,
     baseline_manifest,
 )
-from .research_auditor import ResearchAuditor, build_research_snapshot
+from .research_auditor import ResearchAuditor, build_experiment_research_snapshot, build_research_snapshot
 
 
 class StepRequest(BaseModel):
@@ -138,8 +138,6 @@ def generate_experiment(
         engine = engine_for(session_id)
         state_hash = engine.state_hash()
     audit = research_auditor.cached_for_state(state_hash)
-    if audit is None:
-        raise HTTPException(status_code=409, detail="Run the GPT-5.6 Research Auditor for this state first")
 
     parent = None
     if payload.parentId:
@@ -150,6 +148,11 @@ def generate_experiment(
             if parent_record is None:
                 raise HTTPException(status_code=404, detail="Parent experiment was not found")
             parent = parent_record.model_dump()
+            parent_audit = (parent_record.result or {}).get("externalAudit")
+            if parent_audit is not None:
+                audit = parent_audit
+    if audit is None:
+        raise HTTPException(status_code=409, detail="Run the GPT-5.6 Research Auditor for this state or parent version first")
     try:
         proposal, usage = experiment_designer.propose(audit, payload.instruction, parent)
     except RuntimeError as error:
@@ -178,6 +181,32 @@ def execute_experiment(
     if record is None:
         raise HTTPException(status_code=404, detail="Experiment was not found")
     return experiment_executor.submit(workspace_id, user, record)
+
+
+@app.post("/api/experiments/{experiment_id}/audit", response_model=ExperimentRecord)
+def audit_experiment(
+    experiment_id: str,
+    session_id: SessionId,
+    workspace_id: ExperimentWorkspaceId,
+    user: OptionalUser,
+) -> ExperimentRecord:
+    record = experiment_registry.get(workspace_id, user, experiment_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Experiment was not found")
+    if record.status != "completed" or record.result is None:
+        raise HTTPException(status_code=409, detail="Complete the experiment before auditing its result")
+    snapshot = build_experiment_research_snapshot(record.model_dump())
+    try:
+        audit = research_auditor.analyze(snapshot, f"{session_id}:{experiment_id}")
+    except RuntimeError as error:
+        if "OPENAI_API_KEY" in str(error):
+            raise HTTPException(status_code=503, detail="GPT-5.6 Research Auditor is not configured") from error
+        raise HTTPException(status_code=502, detail="GPT-5.6 returned an invalid version audit") from error
+    except Exception as error:
+        raise HTTPException(status_code=502, detail="GPT-5.6 version audit is temporarily unavailable") from error
+    record.result = {**record.result, "externalAudit": audit}
+    experiment_registry.save(workspace_id, user, record)
+    return record
 
 
 @app.delete("/api/experiments/{experiment_id}")

@@ -5,8 +5,9 @@ import type { ResearchAudit } from './types';
 type Props = {
   enabled: boolean;
   stepCount: number;
+  audit: ResearchAudit | null;
   onBeforeAudit: () => void;
-  onAudit?: (audit: ResearchAudit) => void;
+  onAudit: (audit: ResearchAudit) => void;
 };
 
 function readableError(error: unknown) {
@@ -15,8 +16,7 @@ function readableError(error: unknown) {
   return 'GPT-5.6 could not audit this snapshot. The learner was not modified.';
 }
 
-export function ResearchAuditorPanel({ enabled, stepCount, onBeforeAudit, onAudit }: Props) {
-  const [audit, setAudit] = useState<ResearchAudit | null>(null);
+export function ResearchAuditorPanel({ enabled, stepCount, audit, onBeforeAudit, onAudit }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -26,8 +26,7 @@ export function ResearchAuditorPanel({ enabled, stepCount, onBeforeAudit, onAudi
     setError('');
     try {
       const nextAudit = await api.researchAudit();
-      setAudit(nextAudit);
-      onAudit?.(nextAudit);
+      onAudit(nextAudit);
     } catch (requestError) {
       setError(readableError(requestError));
     } finally {

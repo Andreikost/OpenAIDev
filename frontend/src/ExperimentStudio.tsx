@@ -4,7 +4,16 @@ import type { AuthUser, BaselineManifest, ExperimentRecord, ResearchAudit } from
 
 function metric(value: number | undefined) { return value == null ? '—' : value.toFixed(3); }
 
-export function ExperimentStudio({ audit, currentStateHash, user }: { audit: ResearchAudit | null; currentStateHash: string; user: AuthUser | null }) {
+type Props = {
+  audit: ResearchAudit | null;
+  currentStateHash: string;
+  user: AuthUser | null;
+  canAudit: boolean;
+  onBeforeAudit: () => void;
+  onAudit: (audit: ResearchAudit) => void;
+};
+
+export function ExperimentStudio({ audit, currentStateHash, user, canAudit, onBeforeAudit, onAudit }: Props) {
   const [baseline, setBaseline] = useState<BaselineManifest | null>(null);
   const [experiments, setExperiments] = useState<ExperimentRecord[]>([]);
   const [instruction, setInstruction] = useState('');
@@ -33,10 +42,16 @@ export function ExperimentStudio({ audit, currentStateHash, user }: { audit: Res
   const auditIsCurrent = audit?.snapshotStateHash === currentStateHash;
 
   async function createAndRun() {
-    if (!auditIsCurrent) { setMessage('Audit the current frozen state before deriving a version.'); return; }
+    if (!canAudit) { setMessage('Train the ecosystem before deriving an experiment.'); return; }
     setBusy(true);
-    setMessage('GPT-5.6 is translating evidence into an allowlisted experiment protocol…');
     try {
+      if (!auditIsCurrent) {
+        onBeforeAudit();
+        setMessage('Freezing the current state and refreshing the GPT-5.6 audit…');
+        const nextAudit = await api.researchAudit();
+        onAudit(nextAudit);
+      }
+      setMessage('GPT-5.6 is translating current evidence into an allowlisted experiment protocol…');
       const created = await api.createExperiment(instruction.trim(), parentId);
       const queued = await api.runExperiment(created.id);
       setExperiments((items) => [...items, queued]);
@@ -79,10 +94,11 @@ export function ExperimentStudio({ audit, currentStateHash, user }: { audit: Res
         <textarea value={instruction} onChange={(event) => setInstruction(event.target.value)} placeholder="Optional: add a constraint or request a variant, e.g. ‘prioritize rotation robustness with three seeds’" maxLength={1200} />
         <div className="experiment-compose-actions">
           <label>Derive from<select value={parentId} onChange={(event) => setParentId(event.target.value)}><option value={baseline?.id ?? 'colonymind-build-week-baseline-v1'}>Baseline v1</option>{experiments.map((item) => <option key={item.id} value={item.id}>Version {item.version} · {item.proposal.shortLabel}</option>)}</select></label>
-          <button className="primary" disabled={!auditIsCurrent || busy} onClick={() => void createAndRun()}>{busy ? 'Designing safe version…' : selected ? 'Create & run variant' : 'Implement auditor experiment'}</button>
+          <button className="primary" disabled={!canAudit || busy} onClick={() => void createAndRun()}>{busy ? 'Auditing & designing…' : selected ? (auditIsCurrent ? 'Create & run variant' : 'Refresh audit & run variant') : (auditIsCurrent ? 'Implement auditor experiment' : 'Refresh audit & implement')}</button>
         </div>
-        {!audit && <small className="experiment-gate">Run the GPT‑5.6 Research Auditor first.</small>}
-        {audit && !auditIsCurrent && <small className="experiment-gate">The ecosystem advanced after this audit. Audit the new frozen state before branching.</small>}
+        {!canAudit && <small className="experiment-gate">Train the ecosystem first.</small>}
+        {canAudit && !audit && <small className="experiment-gate">This action will freeze and audit the current state before creating the version.</small>}
+        {canAudit && audit && !auditIsCurrent && <small className="experiment-gate">The ecosystem advanced after this audit. This action will refresh the audit automatically before branching.</small>}
         {message && <p className="experiment-message">{message}</p>}
       </div>
 

@@ -202,7 +202,7 @@
       "voiceover": "GPT-5.6 acts as an external research auditor through the OpenAI Responses API and Structured Outputs. It sees a frozen aggregate snapshot - never raw pixels, cell prototypes, tools, or a learning endpoint. It challenges the evidence, exposes scientific risks, and proposes the next controlled experiment."
     },
     {
-      "timecode": "01:55-02:20",
+      "timecode": "01:55-02:16",
       "purpose": "Show versioned scientific action",
       "visual": "Move to Versioned Experiment Studio. Show Baseline v1 locked. Add a short instruction, create an isolated experiment, then cut to a completed version with seeds, NMI, ARI, fragmentation, controls, and baseline-preserved status.",
       "camera_edit": "Compress waiting time with a clean progress match cut. Never fake a completed value; use a previously completed authentic result.",
@@ -210,7 +210,7 @@
       "voiceover": "The Experiment Studio turns that diagnosis plus human instructions into an allowlisted protocol. It can replicate seeds, vary nuisances, add shapes, or test bounded copies of learning policy. Every version runs in a fresh engine. Baseline v1 stays locked, and no GPT-generated code is executed."
     },
     {
-      "timecode": "02:20-02:40",
+      "timecode": "02:16-02:36",
       "purpose": "Satisfy and humanize Codex collaboration",
       "visual": "Use a clean timeline of dated repository commits and fast crops of tests, architecture docs, and deployment verification. Do not show terminals containing credentials.",
       "camera_edit": "Five 2-second evidence shots connected by a thin cyan timeline. Return to the live architecture for the final sentence.",
@@ -218,7 +218,7 @@
       "voiceover": "Codex accelerated architecture, implementation, tests, visualization, report analysis, and VPS deployment throughout Build Week. I made the scientific and product decisions: long-lived organisms, open-ended growth, the micro-signature layer, and an immutable baseline."
     },
     {
-      "timecode": "02:40-02:50",
+      "timecode": "02:36-02:46",
       "purpose": "Credible impact and close",
       "visual": "Slow orbit around the most legible living architecture state. Transition from the three simple shapes toward abstract outlines suggesting more complex visual patches, clearly labeled future work.",
       "camera_edit": "Reduce music intensity, leave a half-second of visual breathing room before the end card.",
@@ -226,7 +226,7 @@
       "voiceover": "Shapes are the wind tunnel, not the destination. ColonyMind tests whether demand-driven structure can avoid unnecessary capacity and adaptation. Today we measure proxies; next, matched baselines must measure time, memory, compute, and physical energy directly."
     },
     {
-      "timecode": "02:50-02:54",
+      "timecode": "02:46-02:50",
       "purpose": "Actionable end card",
       "visual": "ColonyMind wordmark over the living field with live demo and GitHub repository URLs in large text.",
       "camera_edit": "Four-second hold. No additional narration after the URLs appear.",

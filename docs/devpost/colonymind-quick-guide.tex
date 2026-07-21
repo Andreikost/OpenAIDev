@@ -1,0 +1,261 @@
+\documentclass[10pt,letterpaper]{article}
+\usepackage[margin=0.55in]{geometry}
+\usepackage{graphicx}
+\usepackage[table]{xcolor}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+\definecolor{navy}{HTML}{071827}
+\definecolor{cyan}{HTML}{39D4FF}
+\definecolor{violet}{HTML}{8877FF}
+\definecolor{mint}{HTML}{55E6A5}
+\definecolor{amber}{HTML}{FFB454}
+\definecolor{muted}{HTML}{587083}
+\definecolor{ice}{HTML}{EEF9FC}
+\definecolor{softviolet}{HTML}{F2F0FF}
+\definecolor{softamber}{HTML}{FFF6E9}
+\hypersetup{colorlinks=true,urlcolor=violet,linkcolor=violet}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{3pt}
+\setlist[itemize]{leftmargin=15pt,itemsep=1.5pt,topsep=2pt}
+\setlist[enumerate]{leftmargin=20pt,itemsep=2pt,topsep=2pt}
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyfoot[L]{\color{muted}\footnotesize ColonyMind - OpenAI Build Week 2026}
+\fancyfoot[R]{\color{muted}\footnotesize \thepage\ / 4}
+\newcommand{\kicker}[1]{\textcolor{cyan}{\bfseries\footnotesize\MakeUppercase{#1}}}
+\newcommand{\sectiontitle}[1]{\par\vspace{4pt}{\color{navy}\Large\bfseries #1}\par\vspace{3pt}}
+\newcommand{\badge}[2]{\colorbox{#1}{\strut\hspace{3pt}\textcolor{navy}{\bfseries\scriptsize #2}\hspace{3pt}}}
+\newcommand{\pagebanner}[2]{
+  \colorbox{navy}{\parbox{\dimexpr\textwidth-2\fboxsep\relax}{
+    \vspace{7pt}{\color{cyan}\bfseries\small #1}\hfill
+    {\color{white}\bfseries #2}\vspace{7pt}}}\par
+}
+\begin{document}
+\raggedright
+
+\noindent\colorbox{navy}{%
+  \parbox{\dimexpr\textwidth-2\fboxsep\relax}{%
+    \vspace{8pt}
+    {\color{cyan}\bfseries\small QUICK GUIDE}\hfill
+    {\color{white}\footnotesize openaidev.automationfreelancer.com}\par
+    \vspace{3pt}{\color{white}\fontsize{25}{28}\selectfont\bfseries ColonyMind}\par
+    {\color{white}\large A label-free visual learner that grows structure only when information earns it.}
+    \vspace{8pt}
+  }%
+}\par
+
+\vspace{8pt}
+\begin{minipage}[t]{0.43\textwidth}
+  \includegraphics[width=\linewidth]{assets/colonymind-devpost-thumbnail.png}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.53\textwidth}
+  \kicker{The idea in 20 seconds}\par
+  ColonyMind begins with a small adaptive population instead of a large fixed
+  network. Unlabeled retinal information acts as \textbf{food}. Persistent
+  prediction error can earn new cells, organisms, and cooperation; familiar
+  structure is consolidated as memory, so learned input should stop feeding
+  unnecessary growth.
+
+  \vspace{4pt}
+  \badge{cyan}{CELLS} \badge{violet}{ORGANISMS}
+  \badge{amber}{MICRO LAYER} \badge{mint}{MEMORY}
+
+  \vspace{5pt}
+  \colorbox{ice}{\parbox{\dimexpr\linewidth-2\fboxsep\relax}{
+    \textbf{Important:} this is bio-inspired software, not a biological
+    simulation. The metaphors make an inspectable computational mechanism
+    easier to reason about.
+  }}
+\end{minipage}
+
+\sectiontitle{Nature as a design language}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabularx}{\textwidth}{>{\bfseries\color{navy}}p{1.1in} >{\raggedright\arraybackslash}p{2.2in} X}
+\rowcolor{ice}Nature analogy & Software meaning & Role in learning \\
+Food & Unlabeled 64 x 64 retinal patches and the residual information they contain. & Novel residuals sustain adaptation; familiar input offers progressively less useful food. \\
+Cell & A small learned adaptive unit or prototype. & Encodes a local visual regularity and contributes to an organism. \\
+Organism & A compact, simulated local expert made from cells. & Grows and specializes where its contribution improves representation. \\
+Micro-signature & An intermediate specialist for fine contours and local detail. & Helps separate globally similar forms, such as circles and squares. \\
+Colony & Cooperation among organisms when shared structure is useful. & Combines complementary specialists without forcing every organism into one monolith. \\
+Memory engram & Consolidated familiar structure. & Preserves learned organization and reduces the need to keep growing on known input. \\
+\end{tabularx}
+
+\vspace{5pt}
+\colorbox{softviolet}{\parbox{\dimexpr\textwidth-2\fboxsep\relax}{
+\textbf{The self-structuring loop:}\quad Retina $\rightarrow$ residual food
+$\rightarrow$ local specialization $\rightarrow$ cellular growth
+$\rightarrow$ useful cooperation $\rightarrow$ memory $\rightarrow$ less
+residual food on familiar input.
+}}
+
+\newpage
+\pagebanner{WHY IT IS DIFFERENT}{Capacity follows information}
+
+\sectiontitle{A demand-driven alternative to fixed capacity}
+\begin{tabularx}{\textwidth}{>{\bfseries\color{navy}}p{1.55in} X X}
+\rowcolor{softamber}Question & Conventional fixed architecture & ColonyMind hypothesis \\
+When is capacity chosen? & Mostly before training through layer width, depth, and parameter count. & During learning, in response to persistent information residuals. \\
+Where does specialization live? & Distributed across a predetermined topology. & In inspectable cells, organism experts, micro-signatures, colonies, and memories. \\
+What happens when input is familiar? & The full configured network still executes. & Useful food declines; growth should stabilize and consolidated structure can be reused. \\
+How is change studied? & Retrain or replace a model configuration. & Preserve an immutable baseline and run bounded variants in fresh isolated engines. \\
+\end{tabularx}
+
+\sectiontitle{How computational efficiency is meant to emerge}
+The system follows a demand-driven capacity rule: allocate structure while
+unexplained information remains, reward only useful contribution, consolidate
+stable structure into memory, and reduce births when the stream is already
+digested.
+
+\vspace{4pt}
+\begin{tabularx}{\textwidth}{X X X}
+\rowcolor{ice}\centering\bfseries CAPACITY & \centering\bfseries ADAPTATION & \centering\arraybackslash\bfseries REUSE\\
+Avoid reserving the final architecture in advance. & Concentrate new structure where residuals persist. & Preserve familiar structure instead of repeatedly relearning it.\\
+\end{tabularx}
+
+\vspace{8pt}
+\colorbox{softviolet}{\parbox{\dimexpr\textwidth-2\fboxsep\relax}{
+\kicker{The testable hypothesis}\par
+If useful residual food declines, births and structural updates should decline
+with it while predictive quality remains stable. If novelty returns, growth
+should resume where the new residual appears. This can be compared directly
+with a matched fixed-capacity baseline.
+}}
+
+\sectiontitle{What is measured today}
+The application records cell and organism populations, structural births,
+prototype updates, colony formation, memory consolidation, loss behavior, and
+evaluation quality. These make the growth policy inspectable and support
+controlled comparisons between versioned experiments.
+
+\vspace{5pt}
+\colorbox{softamber}{\parbox{\dimexpr\textwidth-2\fboxsep\relax}{
+\kicker{What is not proven yet}\par
+Current resource values are engineering \textbf{proxies}. A controlled
+benchmark must still measure wall-clock time, peak memory, FLOPs or accelerator
+utilization, and physical energy against matched fixed-network baselines before
+claiming real computational or energy savings.
+}}
+
+\sectiontitle{The responsible one-line claim}
+\begin{center}
+\Large\bfseries\color{navy}
+ColonyMind tests whether learning systems can earn capacity from novelty,
+then stop growing when useful information food runs out.
+\end{center}
+
+\newpage
+\pagebanner{INTERFACE MAP}{Understand the living system at a glance}
+
+\sectiontitle{One-minute interface tour}
+\begin{tabularx}{\textwidth}{>{\bfseries\color{navy}}p{1.38in} X >{\raggedright\arraybackslash\color{muted}}p{1.8in}}
+\rowcolor{ice}Retinal stream & A 64 x 64 unlabeled stimulus with changing scale, rotation, position, noise, occlusion, and filled or outline rendering. & This is the information food.\\
+Digestion light & Red means abundant residual food, amber means adaptation is slowing, and green means the current stream is mostly digested. & Green is a calibrated indicator, not proof of general intelligence.\\
+Living architecture & Drag to rotate, use the wheel or pinch to zoom, and click one organism to inspect it. & Every rendered object reads live engine state.\\
+Selected organism & Shows cells, lineage, lifecycle, energy proxy, micro-signature affinities, colony, and memories. & Only the selected label appears, keeping the habitat readable.\\
+Draw \& Audit & Draw a circle, triangle, or square. Compare the learned community with an independent geometric auditor. & The probe is read-only and never trains the learner.\\
+Research Auditor & GPT-5.6 interprets a frozen aggregate snapshot and exposes limitations and next experiments. & It cannot access raw pixels or modify learning.\\
+Experiment Studio & Converts a validated proposal plus optional human instructions into a bounded protocol. & Every version gets a fresh engine; Baseline v1 stays locked.\\
+\end{tabularx}
+
+\sectiontitle{Read the 3D visual language}
+\begin{tabularx}{\textwidth}{p{0.16in} >{\bfseries}p{1.35in} X p{0.16in} >{\bfseries}p{1.35in} X}
+\textcolor{cyan}{$\bullet$} & Cell / organism & Learned specialists and their branching tissue. &
+\textcolor{amber}{$\diamond$} & Information food & Retinal patches moving into the learner.\\
+\textcolor{violet}{$\circ$} & Colony membrane & Cooperation among organisms when cohesion pays. &
+\textcolor{mint}{$\bullet$} & Memory engram & Consolidated familiar structure and recall evidence.\\
+\end{tabularx}
+
+\sectiontitle{A focused two-minute judge path}
+\begin{enumerate}
+  \item \textbf{Observe learning.} Let the retina advance. Relate incoming
+  information food to births, growth, micro-signatures, colonies, and memories.
+  Watch the digestion light move as residual food changes.
+  \item \textbf{Explore structure.} Rotate and zoom the 3D field. Select one
+  organism and inspect its tissue, lifecycle, lineage, affinities, and colony.
+  \item \textbf{Challenge recognition.} Draw a shape in Draw \& Audit. Check
+  whether the learned community and external geometric auditor agree.
+  \item \textbf{Reveal evaluation.} Run the hidden-label read-only evaluation.
+  Labels are never used for training; they exist only in the frozen evaluator.
+  \item \textbf{Ask GPT-5.6.} Click \textbf{Audit run}. Before and after state
+  hashes must match. A fresh request may take 30 to 60 seconds; a repeated state
+  can return from cache.
+  \item \textbf{Version the next question.} Add an optional constraint and
+  create an isolated protocol. Baseline v1 remains locked and no generated code
+  is executed.
+\end{enumerate}
+
+\vspace{4pt}
+\colorbox{ice}{\parbox{\dimexpr\textwidth-2\fboxsep\relax}{
+\textbf{Best viewing sequence:} Retina $\rightarrow$ digestion light
+$\rightarrow$ 3D architecture $\rightarrow$ selected organism $\rightarrow$
+Draw \& Audit $\rightarrow$ evaluator $\rightarrow$ GPT-5.6 audit
+$\rightarrow$ versioned experiment.
+}}
+
+\newpage
+\pagebanner{EVIDENCE GUIDE}{Know what is measured - and what is not}
+
+\sectiontitle{How to interpret the metrics}
+\begin{tabularx}{\textwidth}{>{\bfseries\color{navy}}p{1.1in} p{1.42in} X}
+\rowcolor{softviolet}Metric & Better direction & What it answers\\
+Purity & Higher & Do hidden categories dominate individual learned communities? Purity alone can reward fragmentation.\\
+NMI & Higher & How completely does the full community assignment align with hidden categories?\\
+ARI & Higher & How well do sample pairs agree after correcting for chance?\\
+Fragmentation & Near 1.0 & Does one hidden category require many communities instead of a compact representation?\\
+Loss trend & Lower / stable & Is recent reconstruction improving under the system's own loss definition?\\
+Resource score & Context only & Engineering proxy for structure and activity - not watts, FLOPs, or measured physical memory.\\
+\end{tabularx}
+
+\vspace{7pt}
+\begin{minipage}[t]{0.49\textwidth}
+\colorbox{ice}{\parbox{\dimexpr\linewidth-2\fboxsep\relax}{
+  \kicker{Reproducible baseline}\par
+  Five seeds, 240 training steps per seed, and 72 balanced held-out samples per
+  seed produced purity 1.000, mean NMI 0.9699, mean ARI 0.9641, and mean
+  fragmentation 1.2. Every evaluator state hash was preserved.
+}}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.49\textwidth}
+\colorbox{softamber}{\parbox{\dimexpr\linewidth-2\fboxsep\relax}{
+  \kicker{Scientific boundary}\par
+  This is a synthetic circle, triangle, and square benchmark. It demonstrates a
+  transparent self-structuring mechanism, not natural-image performance,
+  camera generalization, or measured energy efficiency.
+}}
+\end{minipage}
+
+\sectiontitle{Why GPT-5.6 cannot alter the result}
+The Research Auditor receives aggregate metrics, structural counts, evaluation
+evidence, and declared limitations. It receives no raw retina, drawings, cell
+prototypes, mutable engine reference, tools, or learning endpoint. The
+Experiment Designer may emit only a schema-validated allowlisted protocol; each
+version runs in a fresh engine and the submitted baseline remains immutable.
+
+\sectiontitle{The scientific trust chain}
+\begin{tabularx}{\textwidth}{>{\bfseries\color{navy}}p{1.18in} X >{\raggedright\arraybackslash\color{muted}}p{1.75in}}
+\rowcolor{ice}1. Learn & Retina enters without semantic labels. & Prevents answer leakage into training.\\
+2. Freeze & Evaluation reads a snapshot that cannot update the learner. & Separates learning from measurement.\\
+3. Challenge & GPT-5.6 receives aggregates and limitations through a constrained schema. & Adds critical interpretation without a write path.\\
+4. Experiment & Approved variations run in fresh engines beside locked Baseline v1. & Makes change comparable and reversible.\\
+\end{tabularx}
+
+\sectiontitle{Claim only what the evidence supports}
+\begin{tabularx}{\textwidth}{X X}
+\rowcolor{ice}\centering\bfseries SUPPORTED TODAY & \centering\arraybackslash\bfseries FUTURE VALIDATION\\
+Label-free organization on a controlled three-shape benchmark; inspectable structural adaptation; isolated GPT-5.6 auditing; reproducible five-seed evidence. & Natural images and camera input; unseen-category transfer; superiority over matched baselines; direct compute, memory, and physical-energy savings.\\
+\end{tabularx}
+
+\vfill
+\begin{center}
+\href{https://openaidev.automationfreelancer.com}{\textbf{Try the live demo}}\quad
+\textcolor{muted}{|}\quad
+\href{https://github.com/Andreikost/OpenAIDev}{\textbf{Inspect the source and evidence}}
+\end{center}
+
+\end{document}

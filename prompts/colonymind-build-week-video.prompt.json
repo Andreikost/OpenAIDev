@@ -1,0 +1,293 @@
+{
+  "schema": "colonymind.video-production-prompt/v1",
+  "project": {
+    "name": "ColonyMind",
+    "event": "OpenAI Build Week 2026",
+    "category": "Developer Tools",
+    "live_demo": "https://openaidev.automationfreelancer.com",
+    "repository": "https://github.com/Andreikost/OpenAIDev",
+    "target_duration_seconds": 170,
+    "hard_maximum_seconds": 179,
+    "language": "English",
+    "distribution": "Publicly visible YouTube video"
+  },
+  "expert_roles": [
+    {
+      "role": "Award-winning technology creative director",
+      "responsibility": "Create an immediate visual hook, one coherent metaphor, and a memorable closing image without exaggerating the science."
+    },
+    {
+      "role": "Hackathon judging strategist",
+      "responsibility": "Optimize the first 30 seconds for novelty and the full edit for technological implementation, design, impact, and idea quality."
+    },
+    {
+      "role": "Machine-learning research scientist",
+      "responsibility": "Fact-check label-free training, evaluator isolation, metrics, limitations, and the distinction between engineering proxies and measured energy."
+    },
+    {
+      "role": "Product storyteller and scriptwriter",
+      "responsibility": "Explain the problem, mechanism, proof, GPT-5.6 contribution, Codex collaboration, and future potential in plain, energetic language."
+    },
+    {
+      "role": "Motion designer and UI cinematographer",
+      "responsibility": "Turn authentic screen recordings into a premium visual journey using restrained callouts, cursor choreography, macro zooms, and clean metric overlays."
+    },
+    {
+      "role": "Trailer editor and sound designer",
+      "responsibility": "Control pacing, transitions, silence, impacts, and an original or properly licensed score while maintaining clear narration."
+    },
+    {
+      "role": "Accessibility and competition compliance reviewer",
+      "responsibility": "Guarantee legible subtitles, audible English narration, a duration under three minutes, no secrets, no unlicensed material, and explicit coverage of Codex and GPT-5.6."
+    }
+  ],
+  "master_instruction": "Produce a premium 170-second hackathon demo film that feels like a scientific discovery unfolding live, not a conventional software walkthrough. Open with a high-contrast macro journey from an unlabeled retinal shape into a living field of cells, then reveal that the imagery is the real interactive ColonyMind interface. Capture attention in the first three seconds with the question: 'What if a neural network could grow itself?' Make the bio-inspired foundation understandable before presenting metrics: information is food, cells are adaptive units, organisms are compact local experts, micro-signatures digest fine detail, colonies represent useful cooperation, and memory is consolidated familiar structure. Clearly distinguish these software abstractions from literal biology. Contrast demand-driven growth with fixed architectures whose capacity is chosen before training. Explain that computational efficiency is the design objective, while current resource values are engineering proxies and direct savings remain to be measured. Use only authentic application states, measured repository evidence, and declared limitations. The emotional arc is curiosity, emergence, understanding, proof, challenge, controlled experimentation, and credible future impact. The film must clearly show what was built, how Codex accelerated the work, and how GPT-5.6 is used at runtime.",
+  "judge_takeaway": "ColonyMind is a working, inspectable developer tool for studying label-free self-structuring visual learners: residual information earns cells and organisms, familiar structure becomes memory, GPT-5.6 independently audits frozen evidence, and proposed changes run as isolated versions without modifying the immutable baseline.",
+  "conceptual_foundation": {
+    "one_sentence_model": "Unlabeled visual information behaves like food: novelty sustains structural adaptation, while familiar information is consolidated into memory and should stop feeding unnecessary growth.",
+    "analogy_map": [
+      {
+        "nature_term": "Food",
+        "software_meaning": "Unlabeled retinal input and the residual information not yet explained by the learner",
+        "observable_cue": "Incoming retinal patches and the red-amber-green digestion indicator"
+      },
+      {
+        "nature_term": "Cell",
+        "software_meaning": "A small learned adaptive unit or prototype",
+        "observable_cue": "Individual translucent units growing within branching tissue"
+      },
+      {
+        "nature_term": "Organism",
+        "software_meaning": "A compact simulated local expert composed of cells",
+        "observable_cue": "Selectable multicellular structures with lineage and lifecycle state"
+      },
+      {
+        "nature_term": "Micro-signature",
+        "software_meaning": "An intermediate specialist for local contours and fine visual detail",
+        "observable_cue": "Amber intermediate-layer activity connecting retinal detail to organisms"
+      },
+      {
+        "nature_term": "Colony",
+        "software_meaning": "Cooperation among complementary organisms when cohesion is useful",
+        "observable_cue": "Translucent membranes and connections enclosing cooperating members"
+      },
+      {
+        "nature_term": "Memory engram",
+        "software_meaning": "Consolidated familiar structure preserved for reuse",
+        "observable_cue": "Mint memory elements and a declining supply of residual food"
+      }
+    ],
+    "causal_story": "Retina -> residual information food -> local specialization -> cellular growth -> useful organism cooperation -> memory consolidation -> less residual food and less pressure to grow on familiar input.",
+    "scientific_boundary": "Present all biological terms as design analogies mapped to implemented software state. Never imply actual metabolism, DNA biochemistry, consciousness, living tissue, or biological fidelity."
+  },
+  "contrast_with_conventional_learning": {
+    "fixed_architecture": "Capacity, depth, and connectivity are largely selected before training, and the configured network continues to execute for familiar inputs.",
+    "colonymind_hypothesis": "Capacity is allocated during learning where persistent residual information justifies it; specialists cooperate, stable structure becomes memory, and familiar input should stop causing births.",
+    "visual_comparison": "Use a clean five-second split screen: on the left, a complete rigid grid labeled CAPACITY CHOSEN FIRST; on the right, the authentic ColonyMind field growing only along active information paths labeled CAPACITY EARNED BY NOVELTY.",
+    "responsible_wording": "Say 'explores a demand-driven alternative' rather than claiming universal superiority over fixed neural networks."
+  },
+  "resource_efficiency_story": {
+    "design_objective": "Use only the structure required by the information currently being learned, then stabilize growth when the residual food signal becomes scarce.",
+    "mechanisms_to_show": [
+      "births tied to persistent residuals rather than a predeclared final size",
+      "fine-detail micro-signatures activated where ambiguity remains",
+      "memory consolidation for reuse of familiar structure",
+      "the digestion traffic light approaching green as useful residual food declines",
+      "versioned controlled experiments that can compare structure, activity, time, and predictive quality"
+    ],
+    "current_evidence": "The application currently reports structural counts and activity/resource proxies.",
+    "required_future_measurement": "Before claiming real computational or energy savings, compare against matched fixed-network baselines using wall-clock time, peak memory, FLOPs or accelerator utilization, and measured physical energy.",
+    "approved_claim": "ColonyMind is designed to test whether demand-driven self-structuring can reduce unnecessary capacity and adaptation.",
+    "forbidden_claim": "ColonyMind has already proven lower energy use or superior computational efficiency."
+  },
+  "creative_direction": {
+    "concept": "From information food to living memory",
+    "tone": [
+      "alive",
+      "scientifically credible",
+      "visually arresting",
+      "precise",
+      "optimistic",
+      "never sensationalist"
+    ],
+    "color_palette": {
+      "deep_space": "#071827",
+      "retinal_cyan": "#39D4FF",
+      "organism_violet": "#8877FF",
+      "micro_signature_amber": "#FFB454",
+      "memory_mint": "#55E6A5",
+      "white": "#F7FCFF"
+    },
+    "typography": "Use Manrope for headlines and DM Mono for scientific labels, matching the application. Limit any overlay to one headline plus one supporting data line.",
+    "motion_language": "Use slow orbital motion for exploration, short 6-10 frame impacts for structural births, thin luminous traces for information flow, and match cuts between retina geometry and 3D tissue. Avoid generic AI brains, humanoid robots, code rain, stock laboratories, or excessive particle effects.",
+    "first_frame": "Black field, one cyan retinal contour pulsing like a food signal. Rapid macro push through the contour into translucent branching cellular tissue.",
+    "first_overlay": "WHAT IF A NEURAL NETWORK COULD GROW ITSELF?",
+    "closing_frame": "The live 3D colony rotates slowly while the immutable Baseline v1 badge and links to the demo and repository appear."
+  },
+  "technical_delivery": {
+    "resolution": "1920x1080",
+    "aspect_ratio": "16:9",
+    "frame_rate": "30 fps",
+    "codec": "H.264 high profile",
+    "container": "MP4",
+    "video_bitrate": "12-20 Mbps",
+    "audio": "48 kHz stereo AAC, 320 kbps",
+    "integrated_loudness": "-14 LUFS",
+    "true_peak_maximum": "-1 dBTP",
+    "captions": "Burned-in English captions plus a separate SRT file",
+    "safe_margins": "Keep critical text within 8 percent of every edge",
+    "youtube_visibility": "Publicly visible, never unlisted or private"
+  },
+  "production_rules": [
+    "Use authentic screen recordings from the deployed application. Do not redesign, regenerate, or fabricate the UI.",
+    "Do not invent organisms, metrics, GPT-5.6 findings, experiment results, camera capabilities, or energy measurements.",
+    "Explain that the biological vocabulary is a functional design analogy mapped to software mechanisms, not a claim that the system is literally alive or biologically faithful.",
+    "Contrast ColonyMind with fixed architectures as a testable demand-driven alternative, never as proven universal superiority.",
+    "Show a completed GPT-5.6 audit rather than making the audience watch a 30-60 second network request.",
+    "Never expose an API key, terminal credential, email address, browser bookmark, notification, IP address, Google profile, or private server panel.",
+    "Training receives no semantic labels. When shape labels are shown, identify them as belonging only to the frozen read-only evaluator.",
+    "Call resource quantities engineering proxies, never watts, FLOPs, carbon savings, or measured physical memory.",
+    "Describe the benchmark as synthetic circles, triangles, and squares. Camera vision and natural images are future work.",
+    "Use no third-party trademarks, stock footage, copyrighted music, or media without documented permission.",
+    "The final runtime must be less than three minutes. Aim for 170 seconds, enforce a hard maximum of 179 seconds, and remove pauses before accelerating narration.",
+    "English voiceover is mandatory and must explicitly explain both Codex and GPT-5.6."
+  ],
+  "shot_plan": [
+    {
+      "timecode": "00:00-00:08",
+      "purpose": "Pattern interrupt and hook",
+      "visual": "Begin on black. A cyan outline shape appears in the retina. Macro push through its pixels into translucent living tissue, then match-cut to the real 3D ColonyMind interface already in motion.",
+      "camera_edit": "Three fast shots: 1.5 seconds, 1.5 seconds, then a 5-second slow reveal. Add one restrained low-frequency impact at the reveal.",
+      "overlay": "WHAT IF A NEURAL NETWORK COULD GROW ITSELF?",
+      "voiceover": "What if a neural network did not begin fully built - but grew only when information demanded it?"
+    },
+    {
+      "timecode": "00:08-00:25",
+      "purpose": "Problem and product definition",
+      "visual": "Show the live three-panel interface: retinal stream, living architecture, selected organism. Briefly reveal the digestion traffic light.",
+      "camera_edit": "Smooth 105 percent digital push. Use animated hairline brackets to identify retina, living architecture, and evidence without covering the UI.",
+      "overlay": "COLONYMIND / LEARNING BY FORAGING",
+      "voiceover": "ColonyMind is a label-free visual learner that treats residual information as food. It earns new cells, small organism networks, and colonies only while unfamiliar structure remains undigested."
+    },
+    {
+      "timecode": "00:25-00:48",
+      "purpose": "Explain the bio-inspired foundation through authentic emergence",
+      "visual": "Rapid but readable montage of retina variations: circle, triangle, square, filled and outline, multiple rotations and scales. For each real UI state, reveal one concise paired callout: residual information equals food; adaptive unit equals cell; compact local expert equals organism; fine-detail specialist equals micro-signature; useful cooperation equals colony; consolidated familiar structure equals memory. Cut to visible cell births, branching tissue, micro-signatures, colony membranes, and mint memory engrams.",
+      "camera_edit": "Use 2-3 second clips and match cuts based on geometric direction. Freeze for 1 second on a cell birth and a memory consolidation event.",
+      "overlay": "INFORMATION -> CELLS -> ORGANISMS -> COLONIES -> MEMORY",
+      "voiceover": "Here, nature is a design language, not a biological claim. Information is food. Cells are adaptive units. Organisms are compact experts. Micro-signatures digest fine detail. Useful experts form colonies, and familiar structure becomes memory. Novel residuals sustain growth; digested input should not."
+    },
+    {
+      "timecode": "00:48-01:05",
+      "purpose": "Make the 3D design meaningful and contrast it with fixed capacity",
+      "visual": "Open with a five-second split comparison: a restrained rigid grid labeled CAPACITY CHOSEN FIRST versus the authentic ColonyMind field labeled CAPACITY EARNED BY NOVELTY. Then rotate and zoom the live 3D field. Click one organism so only its label appears. Show its cells, translucent tissue, lineage, micro-signature affinities, colony, and memories.",
+      "camera_edit": "One continuous cursor move and orbit. Dim the rest of the frame by 10 percent and use a cyan focus ring around the selected organism.",
+      "overlay": "FIXED CAPACITY VS DEMAND-DRIVEN GROWTH",
+      "voiceover": "A conventional model largely chooses capacity before training. ColonyMind explores a demand-driven alternative: grow structure where unexplained information persists, cooperate where it helps, and reuse consolidated memory. Every organism shown here comes from live engine state."
+    },
+    {
+      "timecode": "01:05-01:28",
+      "purpose": "Establish evidence and honesty",
+      "visual": "Show Draw and Audit with a clean hand-drawn shape, then the hidden-label evaluation. Animate four metric cards: Purity 1.000, Mean NMI 0.9699, Mean ARI 0.9641, Fragmentation 1.2. End on the state-hash-preserved badge and a glimpse of the checked-in JSON evidence.",
+      "camera_edit": "Use an 8-frame white flash only between the drawing and evaluator. Metric cards enter one at a time every 0.6 seconds.",
+      "overlay": "5 SEEDS / 360 HELD-OUT SAMPLES / HASHES PRESERVED",
+      "voiceover": "Training never receives semantic labels. Labels live only in a frozen read-only evaluator. Across five seeds and 360 balanced held-out samples, purity was 1.0, mean NMI 0.9699, and mean ARI 0.9641. Every evaluator hash was preserved. These are synthetic-shape results - not a claim of general camera vision."
+    },
+    {
+      "timecode": "01:28-01:55",
+      "purpose": "Make GPT-5.6 indispensable and safe",
+      "visual": "Reveal a completed GPT-5.6 Research Auditor report. Scroll through headline, findings, scientific risks, publication readiness, and next controlled experiments. Hold on the boundary badges: state preserved, no write path, no raw retina.",
+      "camera_edit": "Use a slow vertical move with three deliberate stops. Add a subtle violet edge glow when the GPT-5.6 panel enters.",
+      "overlay": "GPT-5.6 / EXTERNAL / READ ONLY",
+      "voiceover": "GPT-5.6 acts as an external research auditor through the OpenAI Responses API and Structured Outputs. It sees a frozen aggregate snapshot - never raw pixels, cell prototypes, tools, or a learning endpoint. It challenges the evidence, exposes scientific risks, and proposes the next controlled experiment."
+    },
+    {
+      "timecode": "01:55-02:20",
+      "purpose": "Show versioned scientific action",
+      "visual": "Move to Versioned Experiment Studio. Show Baseline v1 locked. Add a short instruction, create an isolated experiment, then cut to a completed version with seeds, NMI, ARI, fragmentation, controls, and baseline-preserved status.",
+      "camera_edit": "Compress waiting time with a clean progress match cut. Never fake a completed value; use a previously completed authentic result.",
+      "overlay": "DIAGNOSIS -> SAFE PROTOCOL -> ISOLATED ENGINE",
+      "voiceover": "The Experiment Studio turns that diagnosis plus human instructions into an allowlisted protocol. It can replicate seeds, vary nuisances, add shapes, or test bounded copies of learning policy. Every version runs in a fresh engine. Baseline v1 stays locked, and no GPT-generated code is executed."
+    },
+    {
+      "timecode": "02:20-02:40",
+      "purpose": "Satisfy and humanize Codex collaboration",
+      "visual": "Use a clean timeline of dated repository commits and fast crops of tests, architecture docs, and deployment verification. Do not show terminals containing credentials.",
+      "camera_edit": "Five 2-second evidence shots connected by a thin cyan timeline. Return to the live architecture for the final sentence.",
+      "overlay": "BUILT WITH CODEX + GPT-5.6 DURING BUILD WEEK",
+      "voiceover": "Codex accelerated architecture, implementation, tests, visualization, report analysis, and VPS deployment throughout Build Week. I made the scientific and product decisions: long-lived organisms, open-ended growth, the micro-signature layer, and an immutable baseline."
+    },
+    {
+      "timecode": "02:40-02:50",
+      "purpose": "Credible impact and close",
+      "visual": "Slow orbit around the most legible living architecture state. Transition from the three simple shapes toward abstract outlines suggesting more complex visual patches, clearly labeled future work.",
+      "camera_edit": "Reduce music intensity, leave a half-second of visual breathing room before the end card.",
+      "overlay": "A TRANSPARENT FIRST STEP TOWARD RESOURCE-AWARE PERCEPTION",
+      "voiceover": "Shapes are the wind tunnel, not the destination. ColonyMind tests whether demand-driven structure can avoid unnecessary capacity and adaptation. Today we measure proxies; next, matched baselines must measure time, memory, compute, and physical energy directly."
+    },
+    {
+      "timecode": "02:50-02:54",
+      "purpose": "Actionable end card",
+      "visual": "ColonyMind wordmark over the living field with live demo and GitHub repository URLs in large text.",
+      "camera_edit": "Four-second hold. No additional narration after the URLs appear.",
+      "overlay": "TRY THE LIVING SYSTEM / OPENAIDEV.AUTOMATIONFREELANCER.COM / GITHUB.COM/ANDREIKOST/OPENAIDEV",
+      "voiceover": "Explore the living system and inspect every claim in the open repository."
+    }
+  ],
+  "capture_checklist": [
+    "Record the live demo at 1920x1080 with browser zoom between 80 and 90 percent so the complete interface remains legible.",
+    "Capture a clean retina sequence containing both filled and outline shapes at visibly different rotations and scales.",
+    "Capture one early-growth state and one mature state with cells, organisms, colonies, micro-signatures, and memory visible.",
+    "Capture a smooth 3D orbit, one zoom, and one organism selection without accidental labels covering the field.",
+    "Prepare one clear Draw and Audit example with an authentic result.",
+    "Capture the hidden-label evaluation and the checked-in five-seed JSON evidence.",
+    "Pre-run and capture a successful GPT-5.6 audit; show the preservation hashes and declared limitations.",
+    "Pre-run and capture one completed versioned experiment with the baseline locked and metrics visible.",
+    "Capture the public GitHub commit timeline, README Codex section, test result, MIT license, and evidence file without showing private browser chrome.",
+    "Disable notifications, hide bookmarks and personal profile elements, use a clean cursor, and close every unrelated tab."
+  ],
+  "audio_direction": {
+    "voice": "Confident, curious, technically literate, warm, and conversational. Approximately 145-155 words per minute. Emphasize 'grows', 'evidence', 'read only', 'immutable baseline', 'Codex', and 'GPT-5.6'.",
+    "music": "Use an original composition or a track with documented commercial reuse permission. Start with a sparse biological pulse, introduce a restrained electronic rhythm after the UI reveal, add a subtle harmonic lift during GPT-5.6, and reduce to a single sustained tone at the closing claim.",
+    "sound_effects": "Use only minimal original or licensed effects: one opening impact, soft cellular birth ticks, a memory consolidation chime, and a low confirmation tone for preserved hashes.",
+    "mix_priority": "Voiceover is always dominant. Duck music by 8-12 dB under narration and avoid effects during metric names or limitations."
+  },
+  "editing_rules": [
+    "Use a new visual idea every 3-5 seconds, but preserve at least two 6-second continuous UI shots to prove interactivity.",
+    "Remove loading, typing, cursor hesitation, browser refreshes, and network waits through honest cuts rather than fake speed indicators.",
+    "Use callouts only where the narrator names a mechanism. Never show more than three callouts simultaneously.",
+    "Animate numeric overlays from the exact checked-in evidence; do not round 0.9699 or 0.9641 upward to 1.0.",
+    "Keep the actual application color palette and avoid adding colors that could be confused with learning states.",
+    "Use subtitles with two lines maximum, 42 characters per line when practical, and at least 44 pixels of text height at 1080p.",
+    "Include one explicit on-screen limitation before the GPT-5.6 section and keep it visible for at least three seconds.",
+    "End at 2:54 if possible, leaving six seconds of safety below the competition maximum."
+  ],
+  "negative_prompt": [
+    "No humanoid robots, chrome brains, generic neural-network stock footage, Matrix code rain, laboratory actors, server racks, city flyovers, or corporate handshakes.",
+    "No fabricated 3D organisms, invented camera input, fake mobile app, fake speedups, fake GPT responses, or metrics not present in authentic evidence.",
+    "No claim that ColonyMind measures watts, saves energy, beats transformers, achieves AGI, understands shapes semantically, or generalizes to real cameras.",
+    "No OpenAI logo treatment that implies endorsement beyond participation in OpenAI Build Week.",
+    "No copyrighted music, third-party trademarks, watermarks, stock-media logos, API keys, emails, Google avatars, IP addresses, terminal passwords, or private tabs.",
+    "No dense paragraphs, tiny code, overlapping labels, excessive glitch effects, rapid unreadable scrolling, or narration faster than comprehension."
+  ],
+  "required_deliverables": [
+    "One final 1920x1080 MP4 under 180 seconds.",
+    "One YouTube-ready thumbnail in 16:9 derived from the ColonyMind palette and authentic 3D architecture.",
+    "One English SRT caption file matching the final edit.",
+    "One clean voiceover WAV file and one music-and-effects WAV stem.",
+    "One text file listing every external audio or visual asset and its license, or stating that all elements are original and application-derived.",
+    "One private compliance review export with exact final duration, loudness, URL legibility, and confirmation that Codex and GPT-5.6 are both explicitly covered."
+  ],
+  "final_quality_gate": [
+    "The first three seconds pose a clear question and show a unique visual.",
+    "A judge can explain ColonyMind's mechanism after 30 seconds.",
+    "The film visibly proves that the application works rather than relying on narration alone.",
+    "Codex collaboration and GPT-5.6 runtime use are both explicit in voice and on screen.",
+    "The baseline/evaluator boundary and no-generated-code claim are shown, not merely asserted.",
+    "All benchmark numbers exactly match docs/evidence/five-seed-baseline-2026-07-21.json.",
+    "Synthetic-shape and proxy-resource limitations are audible or prominently visible.",
+    "No secrets, personal data, third-party marks, or unlicensed content appear in any frame or audio channel.",
+    "The YouTube upload is public or unlisted, voiceover is audible, and runtime is strictly below three minutes.",
+    "The final frame holds the live demo and repository URLs long enough to read."
+  ]
+}

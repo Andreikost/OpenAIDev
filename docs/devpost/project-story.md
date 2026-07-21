@@ -1,91 +1,122 @@
 ## Inspiration
 
-Most vision systems use a fixed architecture and spend roughly the same
-computational budget on every image or video frame.
+Most visual learners begin with their architecture already decided: layers,
+width, and capacity are chosen before the first image arrives. **ColonyMind asks
+a different question: what if a learner had to earn new structure from the
+information it could not yet explain?**
 
-ColonyMind explores another path: an AI architecture that grows only when new
-visual information justifies the cost, reuses existing specialists when
-possible, and removes structures that no longer contribute.
+Nature gave us a useful design language. Unfamiliar information behaves like
+food. Cells become small adaptive units. Cells form organism-like local experts.
+Useful organisms cooperate as colonies, and familiar structure consolidates
+into memory. These are functional software analogies, not claims that the system
+is literally alive.
 
-Basic shapes are our wind tunnel, not the destination. Circles, triangles, and
-squares give us a transparent first environment where every structural decision
-can be observed, tested, and explained.
+Circles, triangles, and squares are our wind tunnel, not our destination. They
+create a controlled setting where growth, specialization, mistakes, and memory
+can be inspected before moving toward complex visual patterns.
 
 ## What it does
 
-ColonyMind is a self-organizing vision architecture that earns every unit of
-computation it uses.
+ColonyMind is an **inspectable, label-free, self-structuring visual learner**.
+Shapes enter through a 64 x 64 retina with changes in rotation, scale, position,
+noise, occlusion, and filled or outline rendering. The learner never receives a
+shape name.
 
-It receives visual information without class labels. Instead of starting with
-a large fixed neural network, it grows neural cells, forms small organism
-networks, and assembles colonies only when cooperation improves learning more
-than it costs.
+Residual information acts as food. Persistent novelty can recruit cells, form
+small organism networks, activate fine-detail micro-signatures, and create
+colonies when cooperation is useful. Familiar input is consolidated into
+persistent memory, reducing the pressure to keep growing. A red-amber-green
+digestion indicator makes that process understandable without pretending that
+green means general intelligence.
 
-Users can watch cells emerge, inspect organism specialization, observe
-persistent colonies, and reveal hidden-label evaluation only after training.
-They can then freeze the evidence and ask an external GPT-5.6 Research Auditor
-to identify findings, scientific risks, and the next controlled experiments.
-
-## Why shapes first
-
-A triangle is simple enough to inspect. If ColonyMind creates capacity for
-corners, closure, or rotation-invariant structure, we can show why it happened.
-This controlled benchmark gives us a reliable foundation before moving toward
-complex visual patterns and eventually camera-based perception.
+Users can rotate and zoom the live 3D architecture, inspect one organism and its
+lineage, draw a new shape in **Draw & Audit**, run a frozen hidden-label
+evaluation, download a structured evidence report, and ask GPT-5.6 to challenge
+the experiment.
 
 ## How we built it
 
-ColonyMind combines a React and TypeScript visual experience with a deterministic
-Python and NumPy learning engine. The P0 system learns through feature-vector
-reconstruction, dynamic topology, and a resource ledger that compares learning
-benefit with structural cost. Its structural review can add capacity for a
-persistent residual or a sufficiently novel unlabeled visual regime.
+The learning core is a deterministic Python and NumPy engine exposed through
+FastAPI. A React, TypeScript, and Three.js interface renders the engine's live
+state as retina, cells, organisms, tissue, colonies, micro-signatures, and
+memory. The visualization is not a prerecorded simulation layered over a
+classifier.
 
-Codex supported architecture, implementation, testing, visualization,
-documentation, and deployment throughout Build Week. GPT-5.6 Sol powers a
-functional external Research Auditor through the Responses API and Structured
-Outputs. It sees only aggregate metrics and declared limitations, returns a
-validated research report, and has no tools or write access to the learner.
+Codex accelerated architecture, implementation, tests, visualization,
+scientific documentation, evidence analysis, and VPS deployment throughout
+Build Week. We used it as an engineering collaborator while retaining the key
+scientific and product decisions: long-lived organisms, demand-driven growth,
+the intermediate micro-signature layer, the resource ledger, and an immutable
+baseline.
+
+GPT-5.6 Sol powers the functional **Research Auditor** through the OpenAI
+Responses API and Structured Outputs. It receives only a frozen aggregate
+snapshot: metrics, structural counts, evaluation evidence, and declared
+limitations. It receives no raw retinal pixels, cell prototypes, tools, mutable
+engine reference, or learning endpoint. Before and after hashes verify that the
+audit did not modify the learner.
+
+The **Versioned Experiment Studio** converts an auditor proposal plus optional
+human instructions into a schema-validated, allowlisted protocol. Each version
+runs in a fresh isolated engine. Baseline v1 remains locked, and no
+GPT-generated code is executed.
 
 ## Challenges we ran into
 
-The hardest challenge is making the biological inspiration computationally
-meaningful. A colony cannot be decoration: it must improve learning, robustness,
-or efficiency after communication cost.
+Our first organisms died too quickly to accumulate useful knowledge, so we
+introduced long-lived resident organisms whose survival depends on sustained
+learning contribution. The original retina was too coarse, so we increased it
+to 64 x 64 and added filled and outline stimuli.
 
-We also need strict isolation between unlabeled training and hidden ground
-truth, deterministic structural growth, stable colony identity, and honest
-resource metrics that do not confuse a compute proxy with electrical energy.
+The most revealing failure was that circles were confused with squares. Global
+shape information was not enough. We added an intermediate layer of local edge
+and curvature **micro-signatures**, allowing fine details to become food for
+specialists before they were composed into higher-level organisms and colonies.
+
+The broader challenge was scientific honesty. A beautiful biological metaphor
+is not evidence. We had to isolate labels, preserve deterministic state, test
+multiple seeds, control fragmentation, and distinguish an engineering resource
+proxy from measured FLOPs, memory, electrical energy, or carbon savings.
 
 ## Accomplishments that we're proud of
 
-The intermediate micro-signature layer corrected the original circle/square
-failure. In our checked-in five-seed benchmark, every seed trained for 240
-steps and received a balanced frozen evaluation of 72 held-out samples. Purity
-was 1.000 for all five seeds, while mean NMI was 0.9699, mean ARI was 0.9641,
-and mean fragmentation was 1.2. Evaluator state hashes were preserved for every
-run. These are controlled synthetic results, not a camera-vision claim, and the
-machine-readable evidence is included in the repository.
+The micro-signature layer corrected the original circle/square failure and made
+the learning process substantially more stable. In our checked-in five-seed
+benchmark, every seed trained for 240 steps and was evaluated on 72 balanced
+held-out samples. **Purity was 1.000 across all five seeds, mean NMI was 0.9699,
+mean ARI was 0.9641, and mean fragmentation was 1.2.** Every evaluator state
+hash was preserved.
 
-We also built a working zero-to-colony learning journey, hidden-label read-only
-evaluation, Draw & Audit lab, counterfactual organism ablation, downloadable
-evidence report, interactive 3D architecture, and GPT-5.6 scientific audit with
-an explicit hash-verified read-only boundary.
+We are equally proud of the boundaries around those numbers. They are evidence
+for organization on a controlled three-shape benchmark, not proof of natural
+image recognition, camera generalization, or superior energy efficiency.
+
+The project also delivers a zero-to-colony learning journey, interactive 3D
+inspection, hidden-label read-only evaluation, Draw & Audit, organism ablation,
+downloadable JSON evidence, a GPT-5.6 scientific audit, and reproducible
+versioned experiments without putting the baseline at risk.
 
 ## What we learned
 
-Bio-inspired design becomes useful when every metaphor maps to a measurable
-mechanism. Food represents learnable information, energy represents marginal
-benefit minus cost, organisms are small neural experts, and colonies represent
-functional cooperation.
+Bio-inspired design becomes useful only when every metaphor maps to an
+observable mechanism. Food must correspond to residual information. Growth must
+respond to persistent novelty. Cooperation must earn its cost. Memory must
+reduce repeated adaptation on familiar input.
 
-We also learned that a compelling visualization is not evidence by itself.
-Claims about specialization or efficiency require controls, ablations, multiple
-seeds, reproducible state, and explicit limitations.
+We also learned that **inspectability and evidence must evolve together**. A
+living 3D visualization can explain what the system is doing, but controlled
+evaluations, ablations, multiple seeds, state hashes, and explicit limitations
+are what make the explanation credible.
 
 ## What's next for ColonyMind
 
-The first milestone is circles, triangles, and squares under rotation, noise,
-occlusion, and hand-drawn variation. Later phases can introduce composite
-patterns, textures, natural image patches, temporal novelty, and opt-in camera
-streams with privacy-preserving local preprocessing.
+The next experiments will compare ColonyMind with matched fixed-capacity and
+label-free baselines while directly measuring wall-clock time, peak memory,
+compute utilization, and physical energy. We will also test nuisance robustness,
+unseen shapes, composite forms, textures, and natural image patches.
+
+Only after those controlled steps will we extend the retina toward opt-in camera
+streams with privacy-preserving local preprocessing. The long-term goal is not
+another large fixed vision model. It is a transparent learning architecture
+that can restructure itself, preserve what it knows, and justify the resources
+it asks to use.

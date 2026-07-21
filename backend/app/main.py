@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import threading
 from collections import OrderedDict
 from typing import Annotated, Any
@@ -50,7 +51,20 @@ class DrawingAuditRequest(BaseModel):
 
 
 app = FastAPI(title="ColonyMind API", version="0.1.0")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+allowed_origins = [
+    value.strip()
+    for value in os.getenv(
+        "CORS_ALLOWED_ORIGINS",
+        "https://openaidev.automationfreelancer.com,http://127.0.0.1:5173,http://localhost:5173",
+    ).split(",")
+    if value.strip()
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-ColonyMind-Session", "X-Experiment-Workspace"],
+)
 lock = threading.RLock()
 engines: OrderedDict[str, ColonyMindEngine] = OrderedDict()
 research_auditor = ResearchAuditor()

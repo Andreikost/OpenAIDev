@@ -60,10 +60,12 @@ resource metrics that do not confuse a compute proxy with electrical energy.
 ## Accomplishments that we're proud of
 
 The intermediate micro-signature layer corrected the original circle/square
-failure: a frozen 300-sample probe at step 2,400 reached 97.67% purity, with
-98/100 circles, 97/100 triangles, and 98/100 squares assigned to their dominant
-communities. Five seeds at step 240 reached mean purity 99.2% (minimum 95.8%).
-These are controlled synthetic results, not a camera-vision claim.
+failure. In our checked-in five-seed benchmark, every seed trained for 240
+steps and received a balanced frozen evaluation of 72 held-out samples. Purity
+was 1.000 for all five seeds, while mean NMI was 0.9699, mean ARI was 0.9641,
+and mean fragmentation was 1.2. Evaluator state hashes were preserved for every
+run. These are controlled synthetic results, not a camera-vision claim, and the
+machine-readable evidence is included in the repository.
 
 We also built a working zero-to-colony learning journey, hidden-label read-only
 evaluation, Draw & Audit lab, counterfactual organism ablation, downloadable

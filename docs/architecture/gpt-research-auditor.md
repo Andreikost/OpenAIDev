@@ -24,10 +24,17 @@ engine reference.
 
 ## OpenAI integration
 
-The backend uses the OpenAI Python SDK, Responses API, `gpt-5.6-sol`, medium
-reasoning, and Pydantic Structured Outputs. `store=false` is used for the request,
+The backend uses the OpenAI Python SDK, Responses API, `gpt-5.6-sol`, low
+auditor reasoning, and Pydantic Structured Outputs. `store=false` is used for the request,
 and a stable privacy-preserving safety identifier is derived by hashing the
 opaque browser session ID. The API credential remains server-side.
+
+The auditor has its own 120-second timeout and a bounded 3,000-token response.
+It deliberately disables automatic SDK retries so one slow paid request cannot
+turn into overlapping attempts beyond the reverse-proxy window. A per-session
+cooldown, shared hourly allowance, concurrency limit, and state-hash cache
+protect the public demo and its API credit. Failures return a retryable message;
+the frozen snapshot and learner remain unchanged.
 
 The validated response contains:
 

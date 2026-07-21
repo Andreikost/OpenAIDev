@@ -3,7 +3,7 @@
 ## Public identity
 
 - Project name: `ColonyMind`
-- Category: `Education`
+- Category: `Developer Tools`
 - Elevator pitch: `Watch a label-free visual learner grow cells into specialist colonies when information remains undigested—and turn familiar patterns into memory instead of more structure.`
 - Thumbnail: `assets/colonymind-devpost-thumbnail.png`
 - Public domain: `https://openaidev.automationfreelancer.com`
@@ -15,18 +15,19 @@ Use only technologies present in the final repository:
 
 - Codex
 - GPT-5.6
+- OpenAI Responses API
 - React
 - TypeScript
 - Vite
+- Three.js
 - Python
 - FastAPI
 - NumPy
 - Pydantic
+- PostgreSQL
 - Docker
 - HTML5 Canvas
-- Playwright
 - Pytest
-- WebSockets
 - Unsupervised Learning
 - Dynamic Neural Networks
 - Bio-inspired AI
@@ -47,12 +48,12 @@ Add after verification:
 - Public YouTube demo no longer than three minutes with audible narration.
 - Narration explains what was built, how Codex was used, and how GPT-5.6 was
   used.
-- Repository includes setup, sample data, testing instructions, limitations,
-  license, and Build Week scope.
+- Repository includes setup, generated-data explanation, testing instructions,
+  limitations, MIT license, third-party notices, and Build Week scope. **Done.**
 - Primary Codex build thread `/feedback` Session ID.
 - Public repository with relevant license, or private repository shared with
   the competition testing addresses.
-- Third-party code, data, assets, and licenses documented.
+- Third-party code, data, assets, and licenses documented. **Done.**
 - No copyrighted music or unlicensed third-party media in the video.
 - Submission finalized before July 21, 2026 at 5:00 PM Pacific Time.
 

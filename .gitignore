@@ -17,6 +17,7 @@ venv/
 !.env.example
 secrets/
 credentials/
+apikey.txt
 *.pem
 *.key
 *.p12

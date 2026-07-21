@@ -18,6 +18,7 @@ complex visual patterns and eventually opt-in camera streams.
 - [Repository and deployment workflow](docs/workflow.md)
 - [P1 lifecycle benchmark](docs/experiments/p1-lifecycle-benchmark.md)
 - [Open-ended growth benchmark](docs/experiments/open-ended-growth.md)
+- [Micro-signature layer benchmark](docs/experiments/micro-signature-layer.md)
 - [Devpost thumbnail](assets/colonymind-devpost-thumbnail.png)
 
 ## Run the benchmark locally
@@ -52,10 +53,13 @@ feature learning, dynamic organisms, colony formation, resource proxies,
 deterministic state hashes, global organism aging, maturation, low-compute
 dormancy, similarity-triggered reactivation, conservative evidence-based archival,
 growth without fixed population or cell-count ceilings, local cell competition,
-information-food gating, and label-free consolidated community memories,
+information-food gating, a rotation-tolerant intermediate layer of local
+micro-signatures and coactivation colonies, persistent fine-detail-driven concept
+growth, and label-free consolidated community memories,
 hidden-label read-only evaluation, a draw-your-own retinal probe with an external
 geometric auditor, read-only ablation, and a downloadable JSON performance
-report v4 with structural-change, digestion, memory, and audit evidence. The planned GPT-5.6
+report v5 with structural-change, intermediate-layer, digestion, memory, and audit
+evidence. The planned GPT-5.6
 curriculum/explanation layer and camera input are deliberately not represented
 as implemented features yet.
 

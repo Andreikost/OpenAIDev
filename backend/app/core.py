@@ -36,6 +36,7 @@ class Organism:
     energy: float = 0.58
     utility: float = 0.0
     specialization: list[float] = field(default_factory=list)
+    intermediate_signature: list[float] = field(default_factory=list)
     colony_id: str | None = None
     age_steps: int = 0
     born_step: int = 0
@@ -73,6 +74,7 @@ class MemoryEngram:
     id: str
     member_ids: list[str]
     prototype: list[float]
+    intermediate_signature: list[float]
     created_step: int
     last_recalled_step: int
     recall_count: int = 0
@@ -80,6 +82,29 @@ class MemoryEngram:
     mean_error: float = 0.0
     stability: float = 0.0
     state: str = "consolidated"
+
+
+@dataclass
+class MicroSignature:
+    id: str
+    prototype: list[float]
+    born_step: int
+    last_active_step: int
+    observations: int = 0
+    digestion_count: int = 0
+    food_evidence: float = 0.0
+    energy: float = 0.55
+    colony_id: str | None = None
+
+
+@dataclass
+class MicroColony:
+    id: str
+    member_ids: list[str]
+    formed_step: int
+    last_active_step: int
+    coactivations: int = 0
+    stability: float = 0.0
 
 
 class ColonyMindEngine:
@@ -102,12 +127,21 @@ class ColonyMindEngine:
     archive_ablation_tolerance = 0.0005
     digestion_error = 0.026
     memory_recall_error = 0.034
+    memory_intermediate_recall = 0.012
     digest_cluster_distance = 0.012
     memory_evidence_required = 12.0
-    organism_birth_novelty = 0.035
+    organism_birth_novelty = 0.018
     cell_birth_novelty = 0.020
     residual_support_required = 6.0
-    committee_relevance_margin = 0.010
+    committee_relevance_margin = 0.003
+    micro_novelty_threshold = 0.018
+    micro_cluster_distance = 0.010
+    micro_support_required = 4
+    micro_colony_support = 12
+    intermediate_novelty = 0.012
+    intermediate_birth_novelty = 0.018
+    intermediate_cluster_distance = 0.012
+    intermediate_support_required = 4
     replay_capacity = 64
 
     def __init__(self, seed: int = 20260718) -> None:
@@ -121,6 +155,8 @@ class ColonyMindEngine:
         self.organisms: dict[str, Organism] = {}
         self.colonies: dict[str, Colony] = {}
         self.memories: dict[str, MemoryEngram] = {}
+        self.micro_signatures: dict[str, MicroSignature] = {}
+        self.micro_colonies: dict[str, MicroColony] = {}
         self.events: list[dict[str, Any]] = []
         self.structural_history: list[dict[str, Any]] = []
         self.event_totals: dict[str, int] = {}
@@ -134,13 +170,20 @@ class ColonyMindEngine:
         self.previous_loss: float | None = None
         self.digested_samples = 0
         self.total_information_food = 0.0
+        self.total_micro_food = 0.0
+        self.micro_digested_details = 0
+        self.current_micro_food = 0.0
+        self.current_micro_activations: list[str] = []
+        self.micro_residuals: list[np.ndarray] = []
+        self.micro_coactivations: dict[tuple[str, str], int] = {}
+        self.intermediate_residuals: list[tuple[np.ndarray, np.ndarray]] = []
         self.residual_vectors: dict[str, list[np.ndarray]] = {}
-        self._ids = {"cell": 0, "organism": 0, "colony": 0, "memory": 0, "sample": 0}
+        self._ids = {"cell": 0, "organism": 0, "colony": 0, "memory": 0, "micro": 0, "micro_colony": 0, "sample": 0}
         self._event("SESSION_STARTED", "ecosystem", ["ZERO_LEARNED_STRUCTURE"], {})
 
     def _next_id(self, kind: str) -> str:
         self._ids[kind] += 1
-        prefix = {"cell": "cell", "organism": "org", "colony": "col", "memory": "mem", "sample": "sample"}[kind]
+        prefix = {"cell": "cell", "organism": "org", "colony": "col", "memory": "mem", "micro": "micro", "micro_colony": "mcol", "sample": "sample"}[kind]
         return f"{prefix}-{self._ids[kind]:03d}"
 
     def _event(self, kind: str, entity_id: str, reasons: list[str], metrics: dict[str, float]) -> None:
@@ -273,7 +316,13 @@ class ColonyMindEngine:
         # The private generator label is returned separately and never passed to learning or public state.
         return vector, public, shape
 
-    def _create_organism(self, prototype: np.ndarray, reason: str, parent: Organism | None = None) -> Organism:
+    def _create_organism(
+        self,
+        prototype: np.ndarray,
+        reason: str,
+        parent: Organism | None = None,
+        intermediate_signature: np.ndarray | None = None,
+    ) -> Organism:
         organism_id = self._next_id("organism")
         information_x, information_y = self._information_coordinates(prototype)
         organism = Organism(
@@ -281,6 +330,11 @@ class ColonyMindEngine:
             lineage=parent.lineage if parent else organism_id,
             color=COLORS[(self._ids["organism"] - 1) % len(COLORS)],
             specialization=prototype.round(4).tolist(),
+            intermediate_signature=(
+                intermediate_signature
+                if intermediate_signature is not None
+                else self._intermediate_signature(prototype, learn=False)[0]
+            ).round(5).tolist(),
             energy=0.54 if parent else 0.62,
             born_step=self.step_count,
             last_active_step=self.step_count,
@@ -370,6 +424,313 @@ class ColonyMindEngine:
 
     def _digest_distance(self, first: np.ndarray, second: np.ndarray) -> float:
         return float(np.mean((self._digest_signature(first) - self._digest_signature(second)) ** 2))
+
+    def _fine_detail_signature(self, vector: np.ndarray) -> np.ndarray:
+        """Invariant composition of edge-direction micro details.
+
+        Fourier magnitudes keep corner/curvature evidence while discarding the
+        absolute rotation of the retinal stimulus. No semantic label is used.
+        """
+        image = np.asarray(vector, dtype=np.float64).reshape((self.retina_side, self.retina_side))
+        padded = np.pad(image, 1, mode="edge")
+        smooth = sum(
+            padded[offset_y : offset_y + self.retina_side, offset_x : offset_x + self.retina_side]
+            for offset_y in range(3)
+            for offset_x in range(3)
+        ) / 9.0
+        gradient_y, gradient_x = np.gradient(smooth)
+        magnitude = np.hypot(gradient_x, gradient_y)
+        orientation = (np.arctan2(gradient_y, gradient_x) % math.pi) / math.pi
+        selected = magnitude > max(0.025, float(np.quantile(magnitude, 0.82)))
+        if int(np.sum(selected)) < 8:
+            return np.zeros(16, dtype=np.float64)
+        histogram, _edges = np.histogram(
+            orientation[selected],
+            bins=36,
+            range=(0.0, 1.0),
+            weights=magnitude[selected],
+        )
+        histogram = histogram / max(1e-12, float(np.sum(histogram)))
+        spectrum = np.abs(np.fft.rfft(histogram))
+        harmonics = spectrum[1:13] / max(1e-12, float(spectrum[0]))
+        signal_mask = smooth > 0.18
+        rows, columns = np.where(signal_mask)
+        if len(rows):
+            weights = smooth[signal_mask]
+            center_x = float(np.average(columns, weights=weights))
+            center_y = float(np.average(rows, weights=weights))
+            edge_rows, edge_columns = np.where(selected)
+            radial_angle = np.arctan2(edge_rows - center_y, edge_columns - center_x)
+            edge_angle = np.arctan2(gradient_y[selected], gradient_x[selected])
+            radial_alignment = np.abs(np.cos(edge_angle - radial_angle))
+            scalars = np.asarray(
+                [
+                    float(np.mean(radial_alignment)),
+                    float(np.std(radial_alignment)),
+                    float(np.mean(magnitude[selected])),
+                    float(np.std(magnitude[selected])),
+                ]
+            )
+        else:
+            scalars = np.zeros(4, dtype=np.float64)
+        return np.concatenate((harmonics, scalars))
+
+    def _micro_descriptors(self, vector: np.ndarray) -> list[np.ndarray]:
+        """Extract sixteen local, label-free edge/curvature descriptors."""
+        image = np.asarray(vector, dtype=np.float64).reshape((self.retina_side, self.retina_side))
+        padded = np.pad(image, 1, mode="edge")
+        smooth = sum(
+            padded[offset_y : offset_y + self.retina_side, offset_x : offset_x + self.retina_side]
+            for offset_y in range(3)
+            for offset_x in range(3)
+        ) / 9.0
+        gradient_y, gradient_x = np.gradient(smooth)
+        magnitude = np.hypot(gradient_x, gradient_y)
+        orientation = (np.arctan2(gradient_y, gradient_x) % math.pi) / math.pi
+        threshold = max(0.025, float(np.quantile(magnitude, 0.82)))
+        descriptors: list[np.ndarray] = []
+        patch_side = self.retina_side // 4
+        for patch_y in range(4):
+            for patch_x in range(4):
+                row_slice = slice(patch_y * patch_side, (patch_y + 1) * patch_side)
+                column_slice = slice(patch_x * patch_side, (patch_x + 1) * patch_side)
+                patch_magnitude = magnitude[row_slice, column_slice]
+                patch_orientation = orientation[row_slice, column_slice]
+                selected = patch_magnitude > threshold
+                if int(np.sum(selected)) < 4:
+                    continue
+                histogram, _edges = np.histogram(
+                    patch_orientation[selected],
+                    bins=16,
+                    range=(0.0, 1.0),
+                    weights=patch_magnitude[selected],
+                )
+                histogram = histogram / max(1e-12, float(np.sum(histogram)))
+                spectrum = np.abs(np.fft.rfft(histogram))
+                harmonics = spectrum[1:5] / max(1e-12, float(spectrum[0]))
+                descriptors.append(
+                    np.concatenate(
+                        (
+                            harmonics,
+                            np.asarray(
+                                [
+                                    float(np.mean(patch_magnitude[selected])),
+                                    float(np.std(patch_magnitude[selected])),
+                                    float(np.mean(smooth[row_slice, column_slice])),
+                                    float(np.std(smooth[row_slice, column_slice])),
+                                ]
+                            ),
+                        )
+                    )
+                )
+        return descriptors
+
+    def _create_micro_signature(self, prototype: np.ndarray, reason: str) -> MicroSignature:
+        micro = MicroSignature(
+            id=self._next_id("micro"),
+            prototype=prototype.round(5).tolist(),
+            born_step=self.step_count,
+            last_active_step=self.step_count,
+            observations=1,
+        )
+        self.micro_signatures[micro.id] = micro
+        self._event(
+            "MICRO_SIGNATURE_BIRTH",
+            micro.id,
+            [reason, "INTERMEDIATE_DETAIL_LAYER"],
+            {"microFood": self.current_micro_food},
+        )
+        return micro
+
+    def _update_micro_colonies(self, active_ids: list[str]) -> None:
+        unique = sorted(set(active_ids))
+        for first_index, first_id in enumerate(unique):
+            for second_id in unique[first_index + 1 :]:
+                pair = (first_id, second_id)
+                self.micro_coactivations[pair] = self.micro_coactivations.get(pair, 0) + 1
+                if self.micro_coactivations[pair] < self.micro_colony_support:
+                    continue
+                first = self.micro_signatures.get(first_id)
+                second = self.micro_signatures.get(second_id)
+                if not first or not second:
+                    continue
+                colony: MicroColony | None = None
+                if first.colony_id and first.colony_id == second.colony_id:
+                    colony = self.micro_colonies.get(first.colony_id)
+                elif first.colony_id and not second.colony_id:
+                    colony = self.micro_colonies.get(first.colony_id)
+                    if colony:
+                        colony.member_ids.append(second.id)
+                        second.colony_id = colony.id
+                elif second.colony_id and not first.colony_id:
+                    colony = self.micro_colonies.get(second.colony_id)
+                    if colony:
+                        colony.member_ids.append(first.id)
+                        first.colony_id = colony.id
+                elif not first.colony_id and not second.colony_id:
+                    colony = MicroColony(
+                        id=self._next_id("micro_colony"),
+                        member_ids=[first.id, second.id],
+                        formed_step=self.step_count,
+                        last_active_step=self.step_count,
+                    )
+                    self.micro_colonies[colony.id] = colony
+                    first.colony_id = colony.id
+                    second.colony_id = colony.id
+                    self._event(
+                        "MICRO_COLONY_FORMED",
+                        colony.id,
+                        ["PERSISTENT_DETAIL_COACTIVATION", "INTERMEDIATE_COMPOSITION"],
+                        {"members": 2, "support": self.micro_coactivations[pair]},
+                    )
+                if colony:
+                    colony.last_active_step = self.step_count
+                    colony.coactivations += 1
+                    colony.stability = min(1.0, colony.stability + 0.01)
+                self.micro_coactivations[pair] = 0
+
+    def _intermediate_signature(
+        self,
+        vector: np.ndarray,
+        learn: bool,
+    ) -> tuple[np.ndarray, float, list[str]]:
+        fine_signature = self._fine_detail_signature(vector)
+        descriptors = self._micro_descriptors(vector)
+        activity = np.zeros(16, dtype=np.float64)
+        active_ids: list[str] = []
+        food_values: list[float] = []
+        for descriptor in descriptors:
+            nearest: MicroSignature | None = None
+            distance = 1.0
+            if self.micro_signatures:
+                nearest, distance = min(
+                    (
+                        (micro, float(np.mean((descriptor - np.asarray(micro.prototype)) ** 2)))
+                        for micro in self.micro_signatures.values()
+                    ),
+                    key=lambda item: item[1],
+                )
+            if nearest and distance <= self.micro_novelty_threshold:
+                active = nearest
+                food_values.append(distance / self.micro_novelty_threshold)
+                if learn:
+                    prototype = np.asarray(nearest.prototype)
+                    rate = 0.06 / math.sqrt(max(1.0, nearest.observations / 16.0))
+                    nearest.prototype = (prototype + rate * (descriptor - prototype)).round(5).tolist()
+                    nearest.observations += 1
+                    nearest.digestion_count += 1
+                    nearest.food_evidence *= 0.94
+                    nearest.last_active_step = self.step_count
+                    nearest.energy = min(1.5, nearest.energy + 0.002)
+                    self.micro_digested_details += 1
+            else:
+                food_values.append(1.0)
+                active = nearest
+                if learn:
+                    if nearest:
+                        nearest.food_evidence = 0.97 * nearest.food_evidence + min(
+                            1.0,
+                            distance / self.micro_novelty_threshold,
+                        )
+                    self.micro_residuals.append(descriptor.copy())
+                    cluster = [
+                        residual
+                        for residual in self.micro_residuals
+                        if float(np.mean((descriptor - residual) ** 2)) <= self.micro_cluster_distance
+                    ]
+                    if not self.micro_signatures or len(cluster) >= self.micro_support_required:
+                        active = self._create_micro_signature(
+                            np.mean(cluster, axis=0) if cluster else descriptor,
+                            "PERSISTENT_UNDIGESTED_FINE_DETAIL",
+                        )
+                        clustered_ids = {id(residual) for residual in cluster}
+                        self.micro_residuals = [
+                            residual for residual in self.micro_residuals if id(residual) not in clustered_ids
+                        ]
+                    self.micro_residuals = self.micro_residuals[-256:]
+            if active:
+                active_ids.append(active.id)
+                numeric_id = int(active.id.rsplit("-", 1)[-1])
+                activity[(numeric_id - 1) % len(activity)] += 1.0
+        if np.sum(activity):
+            activity /= float(np.sum(activity))
+        micro_food = float(np.mean(food_values)) if food_values else 0.0
+        if learn:
+            self.current_micro_food = micro_food
+            self.total_micro_food += micro_food
+            self.current_micro_activations = sorted(set(active_ids))
+            self._update_micro_colonies(active_ids)
+        return np.concatenate((fine_signature, activity)), micro_food, sorted(set(active_ids))
+
+    @staticmethod
+    def _intermediate_distance(vector: np.ndarray, prototype: list[float]) -> float:
+        """Compare concepts while keeping invariant geometry dominant.
+
+        The first half describes the whole contour and the second half records
+        which local micro-signatures coactivated.  Local activity is useful as
+        context, but it must not hide the curvature/corner evidence that
+        separates a circle from a square.
+        """
+        target = np.asarray(prototype)
+        split = min(16, len(vector), len(target))
+        if split == 0:
+            return 1.0
+        geometry = float(np.mean((vector[:split] - target[:split]) ** 2))
+        if len(vector) <= split or len(target) <= split:
+            return geometry
+        micro_context = float(np.mean((vector[split:] - target[split:]) ** 2))
+        return 0.85 * geometry + 0.15 * micro_context
+
+    def _grow_from_intermediate_food(
+        self,
+        vector: np.ndarray,
+        intermediate_signature: np.ndarray,
+        nearest: Organism,
+        nearest_distance: float,
+    ) -> Organism | None:
+        """Create a concept specialist only after persistent fine-detail food.
+
+        This is a label-free DP-means-like growth rule.  A surprising contour
+        is buffered, not immediately converted into structure.  Only a cluster
+        of similar surprises can become an organism; familiar input produces
+        no birth signal and therefore stops growth naturally.
+        """
+        if nearest_distance < self.intermediate_birth_novelty:
+            return None
+        self.intermediate_residuals.append((vector.copy(), intermediate_signature.copy()))
+        cluster_indices = [
+            index
+            for index, (_raw, signature) in enumerate(self.intermediate_residuals)
+            if self._intermediate_distance(intermediate_signature, signature.tolist())
+            <= self.intermediate_cluster_distance
+        ]
+        if len(cluster_indices) < self.intermediate_support_required:
+            self.intermediate_residuals = self.intermediate_residuals[-512:]
+            return None
+
+        raw_cluster = [self.intermediate_residuals[index][0] for index in cluster_indices]
+        signature_cluster = [self.intermediate_residuals[index][1] for index in cluster_indices]
+        candidate = np.mean(raw_cluster, axis=0)
+        candidate_intermediate = np.mean(signature_cluster, axis=0)
+        remaining_novelty = min(
+            self._intermediate_distance(candidate_intermediate, organism.intermediate_signature)
+            for organism in self.organisms.values()
+        )
+        if remaining_novelty < self.intermediate_birth_novelty:
+            return None
+
+        selected = set(cluster_indices)
+        self.intermediate_residuals = [
+            residual
+            for index, residual in enumerate(self.intermediate_residuals)
+            if index not in selected
+        ][-512:]
+        return self._create_organism(
+            candidate,
+            "PERSISTENT_INTERMEDIATE_DETAIL_FOOD",
+            nearest,
+            candidate_intermediate,
+        )
 
     def _information_coordinates(self, vector: np.ndarray) -> tuple[float, float]:
         """Project retinal input into a deterministic 2-D information habitat."""
@@ -595,6 +956,7 @@ class ColonyMindEngine:
         self,
         winner: Organism,
         vector: np.ndarray,
+        intermediate_signature: np.ndarray,
         error: float,
     ) -> MemoryEngram | None:
         """Turn repeatedly digested information into a label-free persistent memory."""
@@ -605,10 +967,17 @@ class ColonyMindEngine:
         ]
         existing = min(
             candidates,
-            key=lambda memory: self._distance(vector, memory.prototype),
+            key=lambda memory: self._intermediate_distance(
+                intermediate_signature,
+                memory.intermediate_signature,
+            ),
             default=None,
         )
-        memory_distance = self._digest_distance(vector, np.asarray(existing.prototype)) if existing else 1.0
+        memory_distance = (
+            self._intermediate_distance(intermediate_signature, existing.intermediate_signature)
+            if existing
+            else 1.0
+        )
         if error <= self.digestion_error:
             winner.digestion_evidence += 1.0
         else:
@@ -616,8 +985,8 @@ class ColonyMindEngine:
 
         if (
             existing
-            and error <= self.memory_recall_error
-            and memory_distance <= self.digest_cluster_distance
+            and error <= max(self.memory_recall_error, 0.065)
+            and memory_distance <= self.memory_intermediate_recall
         ):
             existing.last_recalled_step = self.step_count
             existing.recall_count += 1
@@ -630,6 +999,11 @@ class ColonyMindEngine:
                 0.0,
                 1.0,
             ).round(4).tolist()
+            intermediate_prototype = np.asarray(existing.intermediate_signature)
+            existing.intermediate_signature = (
+                intermediate_prototype
+                + 0.01 * (intermediate_signature - intermediate_prototype)
+            ).round(5).tolist()
             if existing.recall_count % 100 == 0:
                 self._event(
                     "MEMORY_RECALLED",
@@ -652,6 +1026,7 @@ class ColonyMindEngine:
             id=self._next_id("memory"),
             member_ids=members,
             prototype=np.asarray(prototype).round(4).tolist(),
+            intermediate_signature=intermediate_signature.round(5).tolist(),
             created_step=self.step_count,
             last_recalled_step=self.step_count,
             recall_count=1,
@@ -780,6 +1155,7 @@ class ColonyMindEngine:
     def _structural_review(
         self,
         vector: np.ndarray,
+        intermediate_signature: np.ndarray,
         loss: float,
         winner: Organism,
         food_amount: float,
@@ -804,9 +1180,13 @@ class ColonyMindEngine:
             ]
             if len(cluster) >= 3:
                 candidate = np.mean(cluster, axis=0)
+                candidate_intermediate = self._intermediate_signature(candidate, learn=False)[0]
                 organism_novelty = min(
                     (
-                        self._distance(candidate, organism.specialization)
+                        self._intermediate_distance(
+                            candidate_intermediate,
+                            organism.intermediate_signature,
+                        )
                         for organism in self.organisms.values()
                     ),
                     default=1.0,
@@ -824,6 +1204,7 @@ class ColonyMindEngine:
                         candidate,
                         "PERSISTENT_UNDIGESTED_INFORMATION_CLUSTER",
                         winner,
+                        candidate_intermediate,
                     )
                     winner.food_evidence = 0.0
                     self.residual_vectors[winner.id] = []
@@ -844,6 +1225,10 @@ class ColonyMindEngine:
             self.step_count += 1
             vector, public, _label = self._sample()
             self.current_stimulus = public
+            intermediate_signature, micro_food, active_micro_ids = self._intermediate_signature(
+                vector,
+                learn=True,
+            )
             self.replay_buffer.append(vector.copy())
             self.replay_buffer = self.replay_buffer[-self.replay_capacity :]
             self._advance_lifecycle(vector)
@@ -852,8 +1237,14 @@ class ColonyMindEngine:
                 default=1.0,
             )
             information_patch = self._record_information_patch(vector, public["id"], novelty)
+            information_patch["microFood"] = round(micro_food, 3)
+            information_patch["microActivations"] = active_micro_ids
             if not self.organisms:
-                pioneer = self._create_organism(vector, "FIRST_UNLABELED_STIMULUS")
+                pioneer = self._create_organism(
+                    vector,
+                    "FIRST_UNLABELED_STIMULUS",
+                    intermediate_signature=intermediate_signature,
+                )
                 self.current_committee_ids = [pioneer.id]
                 information_patch["consumedBy"] = pioneer.id
                 information_patch["amount"] = 0.12
@@ -862,12 +1253,39 @@ class ColonyMindEngine:
             available = self._processing_organisms()
             ranked = sorted(
                 (
-                    (organism, self._distance(vector, organism.specialization))
+                    (
+                        organism,
+                        self._intermediate_distance(
+                            intermediate_signature,
+                            organism.intermediate_signature,
+                        ),
+                    )
                     for organism in available
                 ),
                 key=lambda item: item[1],
             )
             best_routing_distance = ranked[0][1]
+            born_from_details = self._grow_from_intermediate_food(
+                vector,
+                intermediate_signature,
+                ranked[0][0],
+                best_routing_distance,
+            )
+            if born_from_details is not None:
+                ranked = sorted(
+                    (
+                        (
+                            organism,
+                            self._intermediate_distance(
+                                intermediate_signature,
+                                organism.intermediate_signature,
+                            ),
+                        )
+                        for organism in self._processing_organisms()
+                    ),
+                    key=lambda item: item[1],
+                )
+                best_routing_distance = ranked[0][1]
             processing = [
                 organism
                 for organism, distance in ranked
@@ -884,7 +1302,12 @@ class ColonyMindEngine:
             )
             information_patch["consumedBy"] = winner.id
             error = float(np.mean((vector - reconstruction) ** 2))
-            memory = self._consolidate_or_recall_memory(winner, vector, error)
+            memory = self._consolidate_or_recall_memory(
+                winner,
+                vector,
+                intermediate_signature,
+                error,
+            )
             food_amount = 0.0 if memory else min(
                 1.0,
                 max(0.0, (error - self.digestion_error) / 0.075),
@@ -913,6 +1336,12 @@ class ColonyMindEngine:
             winner.energy = min(1.5, max(0.0, winner.energy + winner.utility * 0.11))
             winner.wins += 1
             winner.last_active_step = self.step_count
+            existing_intermediate = np.asarray(winner.intermediate_signature)
+            intermediate_rate = 0.055 if winner.lifecycle_state == "young" else 0.018
+            winner.intermediate_signature = (
+                existing_intermediate
+                + intermediate_rate * (intermediate_signature - existing_intermediate)
+            ).round(5).tolist()
             recently_reactivated = (
                 winner.last_reactivated_step is not None
                 and self.step_count - winner.last_reactivated_step <= 500
@@ -940,7 +1369,13 @@ class ColonyMindEngine:
             self.loss_history.append(error)
             self.loss_history = self.loss_history[-120:]
             if self.step_count % 12 == 0:
-                self._structural_review(vector, error, winner, food_amount)
+                self._structural_review(
+                    vector,
+                    intermediate_signature,
+                    error,
+                    winner,
+                    food_amount,
+                )
         return self.state()
 
     def _state_payload(self) -> dict[str, Any]:
@@ -972,6 +1407,7 @@ class ColonyMindEngine:
                 "foodEvidence": round(organism.food_evidence, 4),
                 "digestionEvidence": round(organism.digestion_evidence, 4),
                 "memoryIds": organism.memory_ids,
+                "intermediateDimensions": len(organism.intermediate_signature),
                 "x": round(organism.x, 2),
                 "y": round(organism.y, 2),
                 "heading": round(organism.heading, 3),
@@ -993,6 +1429,10 @@ class ColonyMindEngine:
                 "consolidatedMemories": len(self.memories),
                 "digestedSamples": self.digested_samples,
                 "totalInformationFood": round(self.total_information_food, 4),
+                "microSignatures": len(self.micro_signatures),
+                "microColonies": len(self.micro_colonies),
+                "currentMicroFood": round(self.current_micro_food, 4),
+                "microDigestedDetails": self.micro_digested_details,
                 "activeColonies": len(self.colonies),
                 "activeSynapsesProxy": max(0, sum(max(0, len(org.cells) - 1) for org in processing)),
                 "memoryBytesProxy": (
@@ -1000,6 +1440,7 @@ class ColonyMindEngine:
                     + len(self.organisms) * 192
                     + len(self.colonies) * 144
                     + len(self.memories) * self.vector_size * 8
+                    + sum(len(micro.prototype) * 8 + 128 for micro in self.micro_signatures.values())
                 ),
                 "resourceScore": round(
                     sum(org.utility for org in processing)
@@ -1036,6 +1477,20 @@ class ColonyMindEngine:
                 }
                 for memory in self.memories.values()
             ],
+            "microSignatures": [
+                {
+                    "id": micro.id,
+                    "bornStep": micro.born_step,
+                    "lastActiveStep": micro.last_active_step,
+                    "observations": micro.observations,
+                    "digestionCount": micro.digestion_count,
+                    "foodEvidence": round(micro.food_evidence, 5),
+                    "energy": round(micro.energy, 4),
+                    "colonyId": micro.colony_id,
+                }
+                for micro in self.micro_signatures.values()
+            ],
+            "microColonies": [asdict(colony) for colony in self.micro_colonies.values()],
             "informationPatches": self.information_patches,
             "events": list(reversed(self.events[-12:])),
         }
@@ -1051,6 +1506,8 @@ class ColonyMindEngine:
             "organisms": [asdict(organism) for organism in self.organisms.values()],
             "colonies": [asdict(colony) for colony in self.colonies.values()],
             "memories": [asdict(memory) for memory in self.memories.values()],
+            "microSignatures": [asdict(micro) for micro in self.micro_signatures.values()],
+            "microColonies": [asdict(colony) for colony in self.micro_colonies.values()],
         }, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(compact.encode()).hexdigest()[:12]
 
@@ -1076,9 +1533,13 @@ class ColonyMindEngine:
                 if not self.organisms:
                     assigned = "unassigned"
                 else:
+                    intermediate_signature = self._intermediate_signature(vector, learn=False)[0]
                     assigned = min(
                         self.organisms.values(),
-                        key=lambda org: self._distance(vector, org.specialization),
+                        key=lambda org: self._intermediate_distance(
+                            intermediate_signature,
+                            org.intermediate_signature,
+                        ),
                     ).id
                 assignments.append((label, assigned))
         by_organism: dict[str, list[str]] = {}
@@ -1190,7 +1651,17 @@ class ColonyMindEngine:
         learner_confidence = 0.0
         reconstruction_error: float | None = None
         if self.organisms:
-            distances = [(organism, self._distance(vector, organism.specialization)) for organism in self.organisms.values()]
+            intermediate_signature = self._intermediate_signature(vector, learn=False)[0]
+            distances = [
+                (
+                    organism,
+                    self._intermediate_distance(
+                        intermediate_signature,
+                        organism.intermediate_signature,
+                    ),
+                )
+                for organism in self.organisms.values()
+            ]
             distances.sort(key=lambda item: item[1])
             selected, reconstruction_error = distances[0]
             proximity = [math.exp(-distance / 0.06) for _organism, distance in distances]
@@ -1382,7 +1853,7 @@ class ColonyMindEngine:
             })
 
         return {
-            "schema": "colonymind.performance-report.v4",
+            "schema": "colonymind.performance-report.v5",
             "generatedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "simulation": {
                 "seed": self.seed,
@@ -1402,6 +1873,8 @@ class ColonyMindEngine:
                     "memoryBytesProxy": state["metrics"]["memoryBytesProxy"],
                     "digestedSamples": self.digested_samples,
                     "totalInformationFood": round(self.total_information_food, 5),
+                    "totalMicroFood": round(self.total_micro_food, 5),
+                    "microDigestedDetails": self.micro_digested_details,
                 },
                 "cells": {
                     "active": len(active_cells),
@@ -1483,6 +1956,37 @@ class ColonyMindEngine:
                         for memory in consolidated_memories
                     ],
                 },
+                "intermediateLayer": {
+                    "microSignatures": len(self.micro_signatures),
+                    "microColonies": len(self.micro_colonies),
+                    "currentMicroFood": round(self.current_micro_food, 6),
+                    "totalMicroFood": round(self.total_micro_food, 6),
+                    "digestedDetails": self.micro_digested_details,
+                    "pendingMicroResiduals": len(self.micro_residuals),
+                    "pendingConceptResiduals": len(self.intermediate_residuals),
+                    "activeMicroSignatures": self.current_micro_activations,
+                    "growthPolicy": {
+                        "fixedGrowthLimits": None,
+                        "microNoveltyThreshold": self.micro_novelty_threshold,
+                        "microSupportRequired": self.micro_support_required,
+                        "conceptNoveltyThreshold": self.intermediate_birth_novelty,
+                        "conceptClusterDistance": self.intermediate_cluster_distance,
+                        "conceptSupportRequired": self.intermediate_support_required,
+                        "familiarDetailsProvideGrowthFood": False,
+                    },
+                    "signatureDetails": [
+                        {
+                            "id": micro.id,
+                            "observations": micro.observations,
+                            "digestionCount": micro.digestion_count,
+                            "foodEvidence": round(micro.food_evidence, 6),
+                            "energy": round(micro.energy, 6),
+                            "colonyId": micro.colony_id,
+                        }
+                        for micro in self.micro_signatures.values()
+                    ],
+                    "colonyDetails": [asdict(colony) for colony in self.micro_colonies.values()],
+                },
                 "structuralAdaptations": {
                     "definition": "Mutation metrics represent structural adaptation events, not a genetic mutation operator.",
                     "total": sum(count for kind, count in self.event_totals.items() if kind != "SESSION_STARTED"),
@@ -1509,6 +2013,7 @@ class ColonyMindEngine:
                 "Dormancy reduces prototype updates but retains resident prototype memory; memoryBytesProxy therefore includes dormant organisms.",
                 "Archival requires long inactivity, sustained low value, redundancy, and non-positive replay-buffer ablation.",
                 "There are no fixed growth-count limits; growth is gated by persistent undigested residual evidence.",
+                "The intermediate layer is label-free and uses local gradient micro-signatures plus rotation-invariant edge harmonics.",
                 "Recommendations are deterministic heuristics for experimentation, not proof of causal improvement.",
                 "The current hidden evaluation reports purity only; standard NMI and ARI remain planned.",
             ],

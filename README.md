@@ -19,6 +19,7 @@ complex visual patterns and eventually opt-in camera streams.
 - [P1 lifecycle benchmark](docs/experiments/p1-lifecycle-benchmark.md)
 - [Open-ended growth benchmark](docs/experiments/open-ended-growth.md)
 - [Micro-signature layer benchmark](docs/experiments/micro-signature-layer.md)
+- [3D living architecture](docs/architecture/3d-living-architecture.md)
 - [Devpost thumbnail](assets/colonymind-devpost-thumbnail.png)
 
 ## Run the benchmark locally
@@ -59,7 +60,8 @@ growth, and label-free consolidated community memories,
 hidden-label read-only evaluation, a draw-your-own retinal probe with an external
 geometric auditor, read-only ablation, and a downloadable JSON performance
 report v5 with structural-change, intermediate-layer, digestion, memory, and audit
-evidence. The planned GPT-5.6
+evidence. The browser visualizes the same live state as an interactive 3D field
+with navigable cells, organisms, colony membranes, and memory engrams. The planned GPT-5.6
 curriculum/explanation layer and camera input are deliberately not represented
 as implemented features yet.
 

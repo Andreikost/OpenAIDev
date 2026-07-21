@@ -66,3 +66,55 @@ export type ResearchAudit = {
     resourceAssessment: { status: 'proxy only' | 'partially measured' | 'measured'; interpretation: string };
   };
 };
+
+export type AuthUser = { id: string; email: string; name: string | null; picture: string | null; role: string };
+export type AuthConfig = { googleClientId: string; googleEnabled: boolean; persistentExperimentsEnabled: boolean; anonymousExperimentsEnabled: boolean };
+export type AuthSession = { token: string; user: AuthUser };
+export type BaselineManifest = { id: string; commit: string; coreSha256: string; currentCoreSha256: string; verified: boolean; immutable: true; description: string; editable: false; deletable: false };
+export type ExperimentProtocol = {
+  experimentType: 'multi_seed_replication' | 'nuisance_robustness' | 'learning_curve';
+  seeds: number[];
+  trainingSteps: number;
+  samplesPerShape: number;
+  nuisanceProfile: 'baseline' | 'rotation' | 'noise' | 'occlusion' | 'mixed';
+  checkpoints: number[];
+};
+export type ExperimentProposal = {
+  title: string;
+  shortLabel: string;
+  hypothesis: string;
+  rationale: string;
+  protocol: ExperimentProtocol;
+  successCriteria: string[];
+  changesFromParent: string[];
+  judgeExplanation: string;
+};
+export type MetricSummary = { mean: number; min: number; max: number; std: number };
+export type ExperimentResult = {
+  schema: string;
+  baselineId: string;
+  baselineCommit: string;
+  completedAt: string;
+  protocol: ExperimentProtocol;
+  aggregate: { purity: MetricSummary; nmi: MetricSummary; ari: MetricSummary; fragmentation: MetricSummary };
+  runs: { seed: number; final: Record<string, number | string | boolean>; structure: Record<string, number>; resourceProxies: Record<string, number> }[];
+  baselinePreserved: boolean;
+  interpretationBoundary: string;
+};
+export type ExperimentRecord = {
+  id: string;
+  baselineId: string;
+  baselineCommit: string;
+  version: number;
+  parentId: string | null;
+  persistent: boolean;
+  ownerEmail: string | null;
+  instruction: string;
+  proposal: ExperimentProposal;
+  generationUsage: { inputTokens?: number; outputTokens?: number; totalTokens?: number } | null;
+  status: 'draft' | 'queued' | 'running' | 'completed' | 'failed';
+  result: ExperimentResult | null;
+  error: string | null;
+  createdAt: string;
+  updatedAt: string;
+};

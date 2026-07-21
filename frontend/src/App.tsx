@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from './api';
+import { AuthControls } from './AuthControls';
+import { ExperimentStudio } from './ExperimentStudio';
 import { LivingArchitecture3D } from './LivingArchitecture3D';
 import { ResearchAuditorPanel } from './ResearchAuditorPanel';
-import type { Ablation, DrawingAudit, Evaluation, Organism, RetinalStimulus, State } from './types';
+import type { Ablation, AuthUser, DrawingAudit, Evaluation, Organism, ResearchAudit, RetinalStimulus, State } from './types';
 
 const INITIAL_STATE: State = {
   seed: 20260718, stepCount: 0, stateHash: 'awaiting-api', currentStimulus: null,
@@ -153,7 +155,10 @@ export default function App() {
   const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
   const [ablation, setAblation] = useState<Ablation | null>(null);
   const [reporting, setReporting] = useState(false);
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [researchAudit, setResearchAudit] = useState<ResearchAudit | null>(null);
   const [notice, setNotice] = useState('Connect to the learning engine to begin.');
+  const handleAuthUser = useCallback((user: AuthUser | null) => setAuthUser(user), []);
 
   const refresh = useCallback(async () => {
     try { setState(await api.state()); setNotice(''); } catch { setNotice('API unavailable. Start the FastAPI service to connect the ecosystem.'); }
@@ -184,7 +189,7 @@ export default function App() {
     try { setState(await api.step(speed)); setNotice(''); } catch { setNotice('Unable to reach the learning engine.'); }
   }
   async function reset() {
-    setRunning(false); setEvaluation(null); setAblation(null); setState(await api.reset(20260718)); setSelectedId(null); setNotice('The ecosystem was reset to zero learned structure.');
+    setRunning(false); setEvaluation(null); setAblation(null); setResearchAudit(null); setState(await api.reset(20260718)); setSelectedId(null); setNotice('The ecosystem was reset to zero learned structure.');
   }
   async function revealEvaluation() { setEvaluation(await api.evaluate()); }
   async function runAblation(organism: Organism) { setAblation(await api.ablate(organism.id)); }
@@ -212,7 +217,7 @@ export default function App() {
   }
 
   return <main>
-    <nav><div className="brand"><i>◌</i><span>COLONY<span>MIND</span></span></div><div className="nav-copy">SELF-ORGANIZING VISION <b>•</b> BUILD WEEK 2026</div><div className="nav-actions"><button className="report-button" disabled={reporting} onClick={() => void downloadReport()}>{reporting ? 'Preparing JSON…' : '↓ Download JSON report'}</button><button className="outline" onClick={() => void reset()}>Reset ecosystem</button></div></nav>
+    <nav><div className="brand"><i>◌</i><span>COLONY<span>MIND</span></span></div><div className="nav-copy">SELF-ORGANIZING VISION <b>•</b> BUILD WEEK 2026</div><div className="nav-actions"><AuthControls onUser={handleAuthUser}/><button className="report-button" disabled={reporting} onClick={() => void downloadReport()}>{reporting ? 'Preparing JSON…' : '↓ Download JSON report'}</button><button className="outline" onClick={() => void reset()}>Reset ecosystem</button></div></nav>
     <section className="hero">
       <div><p className="eyebrow">A RESOURCE-AWARE LEARNING LAB</p><h1>Watch a vision architecture <em>organize itself.</em></h1><p className="lede">Unlabeled shapes enter as information. Cells become organisms. Organisms form colonies only when cooperation earns its computational cost.</p><div className="hero-actions"><button className="primary" onClick={() => setRunning((value) => !value)}>{running ? 'Pause learning' : 'Start learning'}</button><button className="secondary" onClick={() => void trainOnce()}>Advance {speed} steps</button><select value={speed} onChange={(event) => setSpeed(Number(event.target.value))} aria-label="Training batch size"><option value={4}>4 steps</option><option value={12}>12 steps</option><option value={36}>36 steps</option><option value={96}>96 steps</option></select></div></div>
       <div className="hero-orbit"><div className="orbit orbit-one" /><div className="orbit orbit-two" /><div className="hero-node">0<br/><small>fixed layers</small></div><span className="shape triangle">△</span><span className="shape circle">○</span><span className="shape square">□</span></div>
@@ -225,7 +230,8 @@ export default function App() {
       <aside className="panel inspector"><p className="panel-title">Selected organism</p>{selected ? <><div className="organism-heading"><i style={{ background: selected.color }}/><div><strong>{selected.id}</strong><span>lineage {selected.lineage}</span></div><b className={`lifecycle-badge ${selected.lifecycleState}`}>{selected.lifecycleState}</b></div><dl><div><dt>Cells</dt><dd>{cellsByOrganism[selected.id] ?? 0}</dd></div><div><dt>Intermediate signature</dt><dd>{selected.intermediateDimensions} dims</dd></div><div><dt>Explicit micro affinities</dt><dd>{Object.keys(selected.microAffinities ?? {}).length}</dd></div><div><dt>Micro profile updates</dt><dd>{selected.microProfileUpdates ?? 0}</dd></div><div><dt>Global age</dt><dd>{selected.ageSteps} steps</dd></div><div><dt>Learning wins</dt><dd>{selected.wins}</dd></div><div><dt>Undigested food evidence</dt><dd>{selected.foodEvidence.toFixed(3)}</dd></div><div><dt>Digestion evidence</dt><dd>{selected.digestionEvidence.toFixed(1)}</dd></div><div><dt>Consolidated memories</dt><dd>{selected.memoryIds.length}</dd></div><div><dt>Inactive</dt><dd>{selected.inactiveSteps} steps</dd></div><div><dt>Reactivations</dt><dd>{selected.reactivations}</dd></div><div><dt>Protected for</dt><dd>{Math.max(0, selected.protectedUntil - state.stepCount)} steps</dd></div><div><dt>Energy</dt><dd>{Math.round(selected.energy * 100)}%</dd></div><div><dt>Marginal contribution</dt><dd>{selected.contribution.toFixed(4)}</dd></div><div><dt>Colony</dt><dd>{selected.colonyId ?? 'independent'}</dd></div></dl><button className="secondary full" onClick={() => void runAblation(selected)}>Run read-only ablation</button>{ablation?.organismId === selected.id && <div className="ablation"><b>Evidence</b><span>Loss changes by {ablation.delta.toFixed(4)} when {selected.id} is removed.</span><small>{ablation.modelModified ? 'Warning: state changed' : 'Live state preserved'}</small></div>}</> : <p className="empty-copy">An organism inspector will appear after the first unlabeled stimulus creates a pioneer cell.</p>}</aside>
     </section>
     <DrawingAuditLab hasLearner={state.organisms.length > 0} onOrganism={setSelectedId}/>
-    <ResearchAuditorPanel enabled={state.organisms.length > 0} stepCount={state.stepCount} onBeforeAudit={() => setRunning(false)}/>
+    <ResearchAuditorPanel enabled={state.organisms.length > 0} stepCount={state.stepCount} onBeforeAudit={() => setRunning(false)} onAudit={setResearchAudit}/>
+    <ExperimentStudio audit={researchAudit} currentStateHash={state.stateHash} user={authUser}/>
     <section className="lower-grid"><article className="panel evidence"><div className="panel-header"><div><p className="panel-title">Hidden evaluation</p><span>Labels remain outside the learning loop.</span></div><button className="secondary" onClick={() => void revealEvaluation()} disabled={!state.organisms.length}>Reveal evaluation</button></div>{evaluation ? <div className="evaluation"><strong>{Math.round(evaluation.purity * 100)}% purity</strong><p>{evaluation.note}</p>{evaluation.communities.map((community) => <span key={community.organismId}>{community.organismId} → {community.dominantHiddenLabel} · {community.samples} held-out samples</span>)}</div> : <p className="empty-copy">Train first, then reveal the evaluator's read-only community mapping.</p>}</article>
       <article className="panel events"><p className="panel-title">Evidence log</p><div className="event-list">{state.events.length ? state.events.map((event, index) => <div key={`${event.step}-${index}`}><b>{event.kind.replaceAll('_', ' ')}</b><span>step {event.step} · {event.reasons.join(' · ').replaceAll('_', ' ').toLowerCase()}</span></div>) : <p className="empty-copy">The log records why each structure exists.</p>}</div></article>
     </section>

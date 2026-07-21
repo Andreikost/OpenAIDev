@@ -9,6 +9,14 @@ Build Week deliverables. The GPT-5.6 Research Auditor is a shipped Build Week
 extension: it interprets a frozen aggregate evidence snapshot and cannot train,
 route, grow, archive, label, or otherwise modify the learner.
 
+The Versioned Experiment Studio is a derived Build Week extension. It uses
+GPT-5.6 Structured Outputs to translate audit findings and optional human
+instructions into allowlisted protocols, then runs new engines from zero. It
+adds multi-seed replication, nuisance evaluation, NMI, ARI, fragmentation,
+version lineage, ephemeral anonymous workspaces, authenticated persistence,
+and an experiment chat. The baseline learner remains byte-for-byte frozen and
+is protected by a SHA-256 regression test.
+
 ## Pre-existing references
 
 Earlier experiments under `D:/GitHub/AI` contain research prototypes for Ideal

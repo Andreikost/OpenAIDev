@@ -21,6 +21,7 @@ complex visual patterns and eventually opt-in camera streams.
 - [Micro-signature layer benchmark](docs/experiments/micro-signature-layer.md)
 - [3D living architecture](docs/architecture/3d-living-architecture.md)
 - [GPT-5.6 Research Auditor](docs/architecture/gpt-research-auditor.md)
+- [Versioned Experiment Studio](docs/architecture/versioned-experiment-studio.md)
 - [Devpost thumbnail](assets/colonymind-devpost-thumbnail.png)
 
 ## Run the benchmark locally
@@ -71,12 +72,23 @@ no tools, learning write path, raw retinal pixels, or cell prototypes. Snapshot
 hashes before and after extraction make this boundary visible in the interface.
 Camera input remains a future phase and is not represented as implemented.
 
+The Versioned Experiment Studio converts a cached auditor diagnosis into a
+schema-validated protocol and runs it in fresh, isolated engines. The submitted
+learner is an immutable baseline: GPT-5.6 cannot edit its code or parameters.
+Anonymous versions live only for the current page lifetime; Google-authenticated
+versions, instructions, lineage, status, and results persist in PostgreSQL.
+
 ## GPT-5.6 Research Auditor
 
 Set `OPENAI_API_KEY` only in the backend environment. Optional settings are
 `OPENAI_MODEL=gpt-5.6-sol` and `OPENAI_REASONING_EFFORT=medium`. The browser never
 receives the credential. Repeated audits of the same state hash reuse a bounded
 server-side cache rather than creating another API request.
+
+Persistent experiment workspaces additionally require `DATABASE_URL`,
+`GOOGLE_CLIENT_ID`, and `AUTH_JWT_SECRET` in the backend environment. Google
+access tokens are verified server-side for the configured client audience; the
+application then issues a seven-day, app-specific session token.
 
 ## Security
 

@@ -39,6 +39,8 @@ output/pdf/*.aux
 output/pdf/*.log
 output/pdf/*.out
 output/video/*-silent.webm
+output/video/*-aligned.mp4
+output/video/*-finalized.mp4
 .idea/
 .vscode/
 *.swp

@@ -59,8 +59,10 @@ Devpost's 5 MB limit.
 
 ## Video upload
 
-- Final file: `output/video/colonymind-build-week-final.mp4`
-- Captions: `output/video/colonymind-build-week-captions.srt`
+- Preferred final file: `output/video/colonymind-build-week-dynamic-v2.mp4`
+- Captions: `output/video/colonymind-build-week-dynamic-v2-captions.srt`
+- Audio/visual asset declaration: `output/video/colonymind-build-week-dynamic-v2-assets.txt`
+- Original edit retained as backup: `output/video/colonymind-build-week-final.mp4`
 - Upload to YouTube as **Public**, verify while signed out, and paste the public
   watch URL into Devpost's **Video demo link** field.
 

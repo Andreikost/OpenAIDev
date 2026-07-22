@@ -173,3 +173,14 @@ End on the 3D architecture and repository/live-demo links.
   addresses, browser bookmarks, or server terminals.
 - Upload early to YouTube as public and test the link while signed
   out.
+
+## Final video export
+
+- Preferred upload: `output/video/colonymind-build-week-dynamic-v2.mp4`
+- Runtime: 170.0 seconds
+- Video: 1920 x 1080, 30 fps, H.264 High Profile
+- Audio: conversational neural English narration, original synthesized ambient
+  bed, AAC stereo at 48 kHz, -14.3 LUFS, -1.4 dBTP
+- Captions: `output/video/colonymind-build-week-dynamic-v2-captions.srt`
+- Asset declaration: `output/video/colonymind-build-week-dynamic-v2-assets.txt`
+- Original edit preserved: `output/video/colonymind-build-week-final.mp4`

@@ -1,0 +1,4 @@
+Visuals: authentic ColonyMind deployed-application capture.
+Narration: AI-assisted neural voice generated from the entrant-approved script with edge-tts (en-US-AndrewMultilingualNeural).
+Music: original deterministic two-tone ambient bed synthesized during FFmpeg assembly; no external music or samples.
+No third-party stock footage, images, music, or sound effects.
